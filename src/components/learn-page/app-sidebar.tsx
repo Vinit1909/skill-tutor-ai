@@ -16,9 +16,10 @@ import { WandSparkles } from "lucide-react";
 
 interface AppSidebarProps {
   skill: SkillSpaceData | null;
+  onCreateRoadmap?: () => void;
 }
 
-export function AppSidebar({skill}: AppSidebarProps) {
+export function AppSidebar({skill, onCreateRoadmap}: AppSidebarProps) {
   return (
     <Sidebar
       variant="floating"
@@ -26,7 +27,7 @@ export function AppSidebar({skill}: AppSidebarProps) {
     >
     <SidebarHeader className="flex items-center justify-between border-b p-2">
       <div className="flex items-center">
-        <WandSparkles className="h-6 w-6 text-gray-500"/>
+        <WandSparkles className="h-4 w-4 text-gray-500"/>
       </div>
     </SidebarHeader>
     <SidebarContent className="custom-scrollbar">
@@ -35,6 +36,7 @@ export function AppSidebar({skill}: AppSidebarProps) {
             <Roadmap
               skillId={skill?.id}
               roadmap={skill?.roadmapJSON}
+              onCreateRoadmap={onCreateRoadmap}
             />
           </div>
         {/* </SidebarGroup> */}

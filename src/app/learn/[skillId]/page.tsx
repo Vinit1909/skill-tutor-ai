@@ -15,7 +15,7 @@ import {
     SidebarFooter,
   } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { MessageSquareX, MoreHorizontal, PanelLeft, PanelLeftClose, PanelLeftOpen, PanelRight, WandSparkles } from "lucide-react";
+import { BookMarked, LayoutDashboard, MessageSquareX, MoreHorizontal, PanelLeft, PanelLeftClose, PanelLeftOpen, PanelRight, Shapes, WandSparkles } from "lucide-react";
 import Chat, { ChatRef } from "./chat";
 import { AppSidebar } from "@/components/learn-page/app-sidebar";
 import OnboardingWizard from "@/components/learn-page/onboardingWizard";
@@ -94,7 +94,10 @@ function LearnLayout({skillId}: {skillId?: string}) {
     return (
         <SidebarProvider defaultOpen={true}>
           {/* The wide overlay sidebar for roadmap */}
-          <AppSidebar skill={skill}/>
+          <AppSidebar 
+		  	skill={skill}
+			onCreateRoadmap={() => setShowWizard(true)}
+		  />
 
 		  {showWizard && user && skillId && (
 			<OnboardingWizard
@@ -109,10 +112,10 @@ function LearnLayout({skillId}: {skillId?: string}) {
           <SidebarInset className="flex flex-col h-screen overflow-hidden">
             <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-2 px-3">
-                <SidebarTrigger className="hover:bg-muted hover:text-gray-500 text-gray-500">
+                <SidebarTrigger className="hover:bg-muted hover:text-gray-900 text-gray-500">
                   <Button variant="ghost" size="icon">
                     <PanelLeft className="h-4 w-4" />
-                    <span className="sr-only">Open sidebar</span>
+                    <span className="ml-2">Open sidebar</span>
                   </Button>
                 </SidebarTrigger>
                 <Separator orientation="vertical" className="mr-2 h-4" />
@@ -120,15 +123,17 @@ function LearnLayout({skillId}: {skillId?: string}) {
                 {/* breadcrumb */}
                 <Breadcrumb>
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block hover:bg-muted p-1 rounded-sm">
-                      <BreadcrumbLink href="/dashboard">Your Skills</BreadcrumbLink>
+                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-gray-900 p-1 rounded-md">
+                      <BreadcrumbLink href="/dashboard">
+					  	<div className="flex gap-1"><LayoutDashboard className="h-4 w-4"/>Your Skills</div>
+					  </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />
                     <BreadcrumbItem>
-						<BreadcrumbPage className="hidden md:block hover:cursor-pointer hover:bg-muted p-1 rounded-sm">
+						<BreadcrumbPage className="hidden md:block hover:cursor-pointer hover:bg-muted hover:text-gray-900 p-1 rounded-md">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
-									<span>Learn {skill?.name}</span>
+									<div className="flex gap-1"><BookMarked className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent>
 									<DropdownMenuLabel>Actions</DropdownMenuLabel>

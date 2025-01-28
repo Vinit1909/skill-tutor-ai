@@ -90,5 +90,23 @@ export default {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+	require("tailwindcss-animate"),
+	({ addUtilities }: { addUtilities: Function }) => {
+		const newUtilities = {
+		  ".tree-line": {
+			"&::before": {
+			  content: '""',
+			  position: "absolute",
+			  left: "-1px",
+			  top: "0",
+			  bottom: "0",
+			  width: "1px",
+			  backgroundColor: "hsl(var(--sidebar-border))",
+			},
+		  },
+		}
+		addUtilities(newUtilities, ["responsive", "hover"])
+	  },
+  ],
 } satisfies Config;
