@@ -61,19 +61,19 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 	
 	return (
 		<Card 
-			className="w-64 h-40 overflow-hidden transition-all duration-300 ease-in-out hover:shadow-lg"
+			className="w-64 h-40 overflow-hidden transition-all duration-300 ease-in-out hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl"
 			onMouseEnter={() => setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 		>
 		<CardHeader className="pb-2">
 			<div className="flex items-start justify-between gap-2">
 			<div className="flex items-center space-x-1">
-				<div className={`p-2 rounded-full ${isHovered ? 'bg-primary-foreground' : 'bg-primary-background'}`}>
+				<div className={`p-2 rounded-full ${isHovered ? 'bg-primary-foreground dark:bg-[hsl(0,0%,14.9%)]' : 'bg-primary-background dark:bg-primary-background'}`}>
 					<HoverCard>
 						<HoverCardTrigger asChild>
 							<Info className="h-4 w-4" />
 						</HoverCardTrigger>
-						<HoverCardContent className="w-60">
+						<HoverCardContent className="w-60 dark:bg-[hsl(0,0%,18%)]">
 							<div className="flex justify-between space-x-4">
 								<div className="space-y-1">
 									<h4 className="text-sm font-semibold">{skill.name}</h4>
@@ -102,20 +102,20 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 			</div>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-				<Button variant="ghost" size="icon" className="h-8 w-8">
+				<Button variant="ghost" size="icon" className="h-8 w-8 dark:hover:bg-neutral-800">
 					<ChevronDown className="h-4 w-4" />
 				</Button>
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-40">
+				<DropdownMenuContent align="end" className="w-40 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700">
 				<DropdownMenuLabel>Actions</DropdownMenuLabel>
-				<DropdownMenuSeparator />
-				<DropdownMenuItem onClick={handleEdit} className="flex items-center">
+				<DropdownMenuSeparator/>
+				<DropdownMenuItem onClick={handleEdit} className="flex items-center dark:hover:bg-neutral-800">
 					<Edit2 className="mr-2 h-4 w-4" />
 					Edit
 				</DropdownMenuItem>
 				<DropdownMenuItem
 					onClick={handleDelete}
-					className="text-destructive flex items-center"
+					className="text-destructive flex items-center dark:text-red-500 dark:hover:text-white"
 				>
 					<Trash2 className="mr-2 h-4 w-4" />
 					Delete

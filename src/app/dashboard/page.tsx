@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { CircleFadingPlus, ShieldAlert } from "lucide-react";
 import Image from "next/image";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import DarkModeToggle from "@/components/dark-mode-toggle";
 
 export default function DashboardPage() {
   const { user, loading } = useAuthContext();
@@ -89,18 +90,23 @@ export default function DashboardPage() {
 		<main className="flex flex-col w-full h-screen overflow-hidden">
 		{/* Fixed-ish header area: no scrolling here */}
 		<div className="flex flex-col items-center p-3 shrink-0">
-			<h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+			<div className="flex justify-between items-center w-full">
+				<h1 className="text-2xl font-bold">Dashboard</h1>
+				<div className="flex items-center gap-2">
+					<DarkModeToggle />
+				</div>
+			</div>
 
 			{/* Dialog to create a new SkillSpace */}
 			<Dialog open={openDialog} onOpenChange={setOpenDialog}>
 			<DialogTrigger asChild>
 				<Button variant="default" className="mb-2">
-				<CircleFadingPlus className="h-4 w-4 mr-2" />
-				Add SkillSpace
+					<CircleFadingPlus className="h-4 w-4 mr-2" />
+					Add SkillSpace
 				</Button>
 			</DialogTrigger>
 
-			<DialogContent className="bg-white rounded-lg p-4">
+			<DialogContent className="bg-white rounded-lg p-4 dark:bg-neutral-900">
 				<DialogHeader>
 				<DialogTitle>Create SkillSpace</DialogTitle>
 				<DialogDescription>
@@ -149,10 +155,10 @@ export default function DashboardPage() {
 		<div className="flex-1 overflow-auto px-4 py-4 w-full">
 			{skillSpaces.length === 0 ? (
 				<div className="flex flex-col items-center space-y-4 p-10">
-					<Alert className="flex flex-col items-center justify-center max-w-md mx-auto p-6 rounded-lg shadow-md">
+					<Alert className="flex flex-col items-center justify-center max-w-md mx-auto p-6 rounded-lg shadow-md dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
 						<Image className="mx-auto" alt="empty" src="/empty.svg" width={200} height={200} />
-						<AlertTitle className="text-center mt-4 text-xl font-semibold text-gray-700">No SkillSpaces Yet</AlertTitle>
-						<AlertDescription className="text-center mt-2 text-gray-500">
+						<AlertTitle className="text-center mt-4 text-xl font-semibold text-neutral-700 dark:text-neutral-400">No SkillSpaces Yet</AlertTitle>
+						<AlertDescription className="text-center mt-2 text-neutral-500">
 							Fill your Headspace with a new SkillSpace
 						</AlertDescription>
 					</Alert>

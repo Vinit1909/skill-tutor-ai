@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -21,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { WandSparkles } from "lucide-react";
 import { RiAiGenerate } from "react-icons/ri";
-import { FaHatWizard } from "react-icons/fa6";
 
 interface OnboardingWizardProps {
   skillName: string;
@@ -73,7 +71,7 @@ export default function OnboardingWizard({
 
   return (
     <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
-      <Card className="w-[400px] max-h-[90vh] overflow-auto">
+      <Card className="w-[400px] max-h-[90vh] overflow-auto dark:bg-neutral-900">
         <CardHeader>
           <CardTitle><div className="flex gap-2"><WandSparkles className="h-4 w-4"/>Hi I'm your {skillName} Wizard</div></CardTitle>
           <CardDescription>
@@ -90,12 +88,12 @@ export default function OnboardingWizard({
               defaultValue={level || ""}
             >
               <SelectTrigger id="levelSelect">
-                <SelectValue placeholder={<span className="text-xs text-gray-500">Select your level</span>} />
+                <SelectValue placeholder={<span className="text-xs text-neutral-500">Select your level</span>} />
               </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value="Beginner">Beginner</SelectItem>
-                <SelectItem value="Intermediate">Intermediate</SelectItem>
-                <SelectItem value="Advanced">Advanced</SelectItem>
+              <SelectContent position="popper" className="dark:bg-neutral-900">
+                <SelectItem className="dark:hover:bg-neutral-800" value="Beginner">Beginner</SelectItem>
+                <SelectItem className="dark:hover:bg-neutral-800" value="Intermediate">Intermediate</SelectItem>
+                <SelectItem className="dark:hover:bg-neutral-800" value="Advanced">Advanced</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -104,7 +102,7 @@ export default function OnboardingWizard({
             <Label htmlFor="goalsArea">Your Goals</Label>
             <textarea
               id="goalsArea"
-              className="border p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 w-full min-h-[80px] text-sm placeholder:text-xs placeholder:text-gray-400"
+              className="border p-2 rounded-md w-full min-h-[80px] text-sm placeholder:text-xs placeholder:text-gray-400 dark:bg-neutral-900 dark:placeholder:text-neutral-500"
               placeholder="Describe your main goals..."
               value={goals}
               onChange={(e) => setGoals(e.target.value)}
@@ -115,7 +113,7 @@ export default function OnboardingWizard({
             <Label htmlFor="knowledgeArea">Prior Knowledge</Label>
             <textarea
               id="knowledgeArea"
-              className="border p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 w-full min-h-[60px] text-sm placeholder:text-xs placeholder:text-gray-400"
+              className="border p-2 rounded-md w-full min-h-[60px] text-sm placeholder:text-xs placeholder:text-gray-400 dark:bg-neutral-900 dark:placeholder:text-neutral-500"
               placeholder="What do you already know?"
               value={priorKnowledge}
               onChange={(e) => setPriorKnowledge(e.target.value)}
@@ -130,34 +128,34 @@ export default function OnboardingWizard({
             variant="outline"
             onClick={onComplete}
             disabled={loading}
-            className="mr-2"
+            className="mr-2 dark:bg-neutral-800 dark:hover:bg-neutral-700"
           >
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? (
               <div className="flex items-center">
-                <svg
-                  className="animate-spin h-5 w-5 mr-2 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Generating...
+              <svg
+                className="animate-spin h-5 w-5 mr-2 dark:text-black"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                ></circle>
+                <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Generating...
               </div>
             ) : (
               <div className="flex items-center">

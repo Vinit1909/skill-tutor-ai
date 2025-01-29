@@ -6,23 +6,17 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
-import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
-import {
-    Sidebar,
-    SidebarHeader,
-    SidebarContent,
-    SidebarInset,
-    SidebarFooter,
-  } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { BookMarked, LayoutDashboard, MessageSquareX, MoreHorizontal, PanelLeft, PanelLeftClose, PanelLeftOpen, PanelRight, Shapes, WandSparkles } from "lucide-react";
+import { BookMarked, LayoutDashboard, MessageSquareX, WandSparkles } from "lucide-react";
 import Chat, { ChatRef } from "./chat";
-import { AppSidebar } from "@/components/learn-page/app-sidebar";
 import OnboardingWizard from "@/components/learn-page/onboardingWizard";
 import { getSkillSpace } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
 import { clearChatmessages } from "@/lib/skillChat";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import Roadmap from "./roadmap";
+import DarkModeToggle from "@/components/dark-mode-toggle";
 
 
 export default function LearnPage() {
@@ -40,7 +34,6 @@ export default function LearnPage() {
 
 function LearnLayout({skillId}: {skillId?: string}) {
     const {user, loading} = useAuthContext();
-	const {open, setOpen} = useSidebar();
 	const [skill, setSkill] = useState<any>(null);
 	const [showWizard, setShowWizard] = useState(false);
 	const chatRef = useRef<ChatRef>(null)
@@ -79,10 +72,6 @@ function LearnLayout({skillId}: {skillId?: string}) {
 		setSkill(updated);
 	}
 
-    function toggleSidebar() {
-        setOpen(!open);
-    }
-
 	if (loading) {
 		return <div>Loading...</div>
 	}
@@ -93,11 +82,11 @@ function LearnLayout({skillId}: {skillId?: string}) {
 
     return (
         <SidebarProvider defaultOpen={true}>
-          {/* The wide overlay sidebar for roadmap */}
-          <AppSidebar 
-		  	skill={skill}
-			onCreateRoadmap={() => setShowWizard(true)}
-		  />
+			<Roadmap
+				skillId={skill?.id}
+				roadmap={skill?.roadmapJSON}
+				onCreateRoadmap={() => setShowWizard(true)}
+			/>
 
 		  {showWizard && user && skillId && (
 			<OnboardingWizard
@@ -110,32 +99,27 @@ function LearnLayout({skillId}: {skillId?: string}) {
     
           {/* The main content area */}
           <SidebarInset className="flex flex-col h-screen overflow-hidden">
-            <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 bg-white z-10">
+            <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 bg-white z-10 dark:bg-neutral-800">
               <div className="flex items-center gap-2 px-3">
-                <SidebarTrigger className="hover:bg-muted hover:text-gray-900 text-gray-500">
-                  <Button variant="ghost" size="icon">
-                    <PanelLeft className="h-4 w-4" />
-                    <span className="ml-2">Open sidebar</span>
-                  </Button>
-                </SidebarTrigger>
+                <SidebarTrigger/>
                 <Separator orientation="vertical" className="mr-2 h-4" />
     
                 {/* breadcrumb */}
                 <Breadcrumb>
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-gray-900 p-1 rounded-md">
+                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-black p-1 rounded-md dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
                       <BreadcrumbLink href="/dashboard">
-					  	<div className="flex gap-1"><LayoutDashboard className="h-4 w-4"/>Your Skills</div>
+					  	<div className="flex gap-1 place-items-center"><LayoutDashboard className="h-4 w-4"/>Your Skills</div>
 					  </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />
                     <BreadcrumbItem>
-						<BreadcrumbPage className="hidden md:block hover:cursor-pointer hover:bg-muted hover:text-gray-900 p-1 rounded-md">
+						<BreadcrumbPage className="hidden md:block hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-1 rounded-md">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
-									<div className="flex gap-1"><BookMarked className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
+									<div className="flex gap-1 place-items-center"><BookMarked className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
 								</DropdownMenuTrigger>
-								<DropdownMenuContent>
+								<DropdownMenuContent className="dark:bg-neutral-700">
 									<DropdownMenuLabel>Actions</DropdownMenuLabel>
 									<DropdownMenuSeparator />
 									<DropdownMenuItem onClick={handleClearChatClick} >
@@ -151,13 +135,14 @@ function LearnLayout({skillId}: {skillId?: string}) {
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>
+			  <div className="px-4 ml-auto place-items-center"><DarkModeToggle/></div>
             </header>
-    
+
             {/* Chat interface */}
             <div className="flex-1 min-h-0 ">
-              <Chat ref={chatRef} skillId={skillId} />
+            	<Chat ref={chatRef} skillId={skillId} />
             </div>
           </SidebarInset>
         </SidebarProvider>
-      )
+    );
 }

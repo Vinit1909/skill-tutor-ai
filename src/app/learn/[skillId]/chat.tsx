@@ -161,7 +161,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId }, ref) {
             </div>
         </ScrollArea>
 
-        <div className="bg-gray-100 rounded-3xl flex gap-2 max-w-3xl mx-auto w-full mb-8">
+        <div className="border border-r bg-neutral-50 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl flex gap-2 max-w-3xl mx-auto w-full mb-8">
             <Textarea
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
@@ -172,7 +172,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId }, ref) {
                 handleSend();
                 }
             }}
-            className="bg-gray-100 resize-none h-28 w-full rounded-3xl custom-scrollbar"
+            className="bg-neutral-50 dark:bg-[hsl(0,0%,18%)] resize-none h-28 w-full rounded-3xl custom-scrollbar"
             />
             <Button onClick={handleSend} className="rounded-full p-2.5 self-end mb-4 mr-4">
             <FaArrowUp />
@@ -220,8 +220,8 @@ function ChatBubble({ role, content }: ChatMessage) {
     if (role === "assistant") {
         return (
         <div className="flex items-start w-full rounded-xl gap-4">
-            <VscRobot className="flex-shrink-0 mr-2 h-8 w-8 mt-1 border border-gray-300 rounded-full p-1 text-gray-500" />
-            <div className="flex-1 text-gray-900 text-sm mb-4 break-words overflow-hidden">
+            <VscRobot className="flex-shrink-0 mr-2 h-8 w-8 mt-1 border border-neutral-300 dark:border-neutral-600 rounded-full p-1 text-neutral-500 dark:text-neutral-400" />
+            <div className="flex-1 text-neutral-900 dark:text-white text-sm mb-4 break-words overflow-hidden">
             <MarkdownRenderer content={content} />
             </div>
         </div>
@@ -229,7 +229,7 @@ function ChatBubble({ role, content }: ChatMessage) {
     } else {
         return (
         <div className="flex justify-end">
-            <div className="bg-gray-100 text-gray-900 text-sm p-3 rounded-3xl max-w-xl mb-4 break-words overflow-hidden">
+            <div className="bg-neutral-100 dark:bg-[hsl(0,0%,20%)] text-neutral-900 dark:text-white text-sm p-3 rounded-3xl max-w-xl mb-4 break-words overflow-hidden">
             {content}
             </div>
         </div>
