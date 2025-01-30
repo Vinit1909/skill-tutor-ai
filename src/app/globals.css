@@ -125,26 +125,3 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #cdcccc;
 }
-
-
-.centered-timeline .vertical-timeline-element--left .vertical-timeline-element-content,
-.centered-timeline .vertical-timeline-element--right .vertical-timeline-element-content {
-  margin: 0 auto !important; /* center the content */
-  float: none !important;    /* remove left/right float */
-}
-
-.centered-timeline .vertical-timeline-element--left .vertical-timeline-element-content-arrow,
-.centered-timeline .vertical-timeline-element--right .vertical-timeline-element-content-arrow {
-  left: 50% !important; /* arrow from center */
-  transform: translateX(-50%);
-}
-
-.centered-timeline .vertical-timeline-element--left .vertical-timeline-element-date,
-.centered-timeline .vertical-timeline-element--right .vertical-timeline-element-date {
-  left: 50% !important;
-  transform: translateX(-50%);
-  text-align: center;
-}
-
-/* Optionally hide the vertical line behind the content or keep it behind center? 
-   We'll keep it in center. If you want to shift it behind the card, you can do more offsets. */
