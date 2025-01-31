@@ -221,7 +221,7 @@ function ChatBubble({ role, content }: ChatMessage) {
     if (role === "assistant") {
         return (
         <div className="flex items-start w-full rounded-xl gap-4">
-            <Orbit className="flex-shrink-0 mr-2 mt-1 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
+            <Orbit className="flex-shrink-0 mr-2 mt-2 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
             <div className="flex-1 text-neutral-900 dark:text-white text-sm mb-4 break-words overflow-hidden">
                 <MarkdownRenderer content={content} />
             </div>

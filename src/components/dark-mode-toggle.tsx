@@ -41,7 +41,7 @@ export default function DarkModeToggle() {
 
   return (
     <div className="place-items-end">
-      <Button variant="ghost" className="size-12 rounded-full" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+      <Button variant="ghost" className="size-12 rounded-xl" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
       </Button>
     </div>

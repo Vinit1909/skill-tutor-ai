@@ -122,11 +122,11 @@ function LearnLayout({skillId}: {skillId?: string}) {
 								<DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)]">
 									<DropdownMenuLabel>Actions</DropdownMenuLabel>
 									<DropdownMenuSeparator />
-									<DropdownMenuItem onClick={handleClearChatClick} >
-										<MessageSquareX/> Clear Chat
-									</DropdownMenuItem>
 									<DropdownMenuItem>
 										<WandSparkles/> Edit Roadmap
+									</DropdownMenuItem>
+									<DropdownMenuItem className="text-destructive dark:text-red-500 dark:hover:text-white" onClick={handleClearChatClick} >
+										<MessageSquareX/> Clear Chat
 									</DropdownMenuItem>
 								</DropdownMenuContent>
 							</DropdownMenu>
