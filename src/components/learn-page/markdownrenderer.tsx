@@ -8,11 +8,11 @@ import { Highlight, themes } from "prism-react-renderer"
 import { ClipboardCheck, Copy } from "lucide-react"
 import { useTheme } from "next-themes"
 
-interface CodeProps extends React.HTMLAttributes<HTMLElement> {
-  inline?: boolean
-  className?: string
-  children?: React.ReactNode
-  node?: any
+interface CodeProps extends React.HTMLAttributes<HTMLPreElement> {
+    inline?: boolean
+    className?: string
+    children?: React.ReactNode
+    node?: any
 }
 
 interface MarkdownRendererProps {
@@ -173,7 +173,6 @@ function CodeBlockWithCopy({
   code,
   language,
   isDarkMode,
-  ...props
 }: {
   code: string
   language: string
@@ -225,25 +224,31 @@ function CodeBlockWithCopy({
         </button>
       </div>
     <Highlight theme={isDarkMode ? themes.nightOwl : themes.nightOwlLight} code={code} language={language as any}>
-      {({ className, style, tokens, getLineProps, getTokenProps }) => (
-        <pre
-        className={`${className} ${isDarkMode ? "dark" : ""}`}
-        style={{
-          ...style,
-          margin: 0,
-          padding: "1rem",
-          backgroundColor: isDarkMode ? "#0d1111" : "#ffffff",
-        }}
-        >
-        {tokens.map((line, i) => (
-          <div key={i} {...getLineProps({ line, key: i })}>
-            {line.map((token, key) => (
-            <span key={key} {...getTokenProps({ token, key })} />
-            ))}
-          </div>
-        ))}
-        </pre>
-      )}
+        {({ className, style, tokens, getLineProps, getTokenProps }) => (
+            <pre
+            className={`${className} ${isDarkMode ? "dark" : ""}`}
+            style={{
+                ...style,
+                margin: 0,
+                padding: "1rem",
+                backgroundColor: isDarkMode ? "#0d1111" : "#ffffff",
+            }}
+            >
+            {tokens.map((line, i) => {
+                const lineProps = getLineProps({ line, key: i })
+                const { key: lineKey, ...restLineProps } = lineProps
+                return (
+                <div key={lineKey as React.Key} {...restLineProps}>
+                    {line.map((token, tokenKey) => {
+                    const tokenProps = getTokenProps({ token, key: tokenKey })
+                    const { key: propKey, ...restTokenProps } = tokenProps
+                    return <span key={propKey as React.Key} {...restTokenProps} />
+                    })}
+                </div>
+                )
+            })}
+            </pre>
+        )}
     </Highlight>
     </div>
   )

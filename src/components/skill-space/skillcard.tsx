@@ -68,10 +68,12 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 		<CardHeader className="pb-2">
 			<div className="flex items-start justify-between gap-2">
 			<div className="flex items-center space-x-1">
-				<div className={`p-2 rounded-full ${isHovered ? 'bg-primary-foreground dark:bg-[hsl(0,0%,14.9%)]' : 'bg-primary-background dark:bg-primary-background'}`}>
+				<div className="p-2 bg-primary-background dark:bg-primary-background">
 					<HoverCard>
 						<HoverCardTrigger asChild>
-							<Info className="h-4 w-4" />
+							<div className={`rounded-full ${isHovered ? 'bg-primary-foreground dark:bg-[hsl(0,0%,14.9%)]' : ''} hover:cursor-pointer hover:text-neutral-300`}> 
+								<Info className="h-4 w-4" />
+							</div>
 						</HoverCardTrigger>
 						<HoverCardContent className="w-60 dark:bg-[hsl(0,0%,18%)]">
 							<div className="flex justify-between space-x-4">
@@ -81,10 +83,10 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 										{skill.description}
 									</p>
 									<div className="flex items-center pt-2">
-									<CalendarIcon className="mr-2 h-4 w-4 opacity-70" />{" "}
-									<span className="text-xs text-muted-foreground">
-										{new Date(skill.createdAt.seconds * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-									</span>
+										<CalendarIcon className="mr-2 h-4 w-4 opacity-70" />{" "}
+										<span className="text-xs text-muted-foreground">
+											{new Date(skill.createdAt.seconds * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+										</span>
 									</div>
 								</div>
 							</div>

@@ -119,7 +119,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
 								<DropdownMenuTrigger asChild>
 									<div className="flex gap-1 place-items-center"><BookMarked className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
 								</DropdownMenuTrigger>
-								<DropdownMenuContent className="dark:bg-neutral-700">
+								<DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)]">
 									<DropdownMenuLabel>Actions</DropdownMenuLabel>
 									<DropdownMenuSeparator />
 									<DropdownMenuItem onClick={handleClearChatClick} >

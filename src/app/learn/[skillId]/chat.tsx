@@ -16,6 +16,7 @@ import { MarkdownRenderer } from "@/components/learn-page/markdownrenderer";
 import { getSkillSpace } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
 import { loadChatMessages, addChatMessage } from "@/lib/skillChat";
+import { Orbit } from "lucide-react";
 
 interface ChatMessage {
     role: "user" | "assistant";
@@ -220,9 +221,9 @@ function ChatBubble({ role, content }: ChatMessage) {
     if (role === "assistant") {
         return (
         <div className="flex items-start w-full rounded-xl gap-4">
-            <VscRobot className="flex-shrink-0 mr-2 h-8 w-8 mt-1 border border-neutral-300 dark:border-neutral-600 rounded-full p-1 text-neutral-500 dark:text-neutral-400" />
+            <Orbit className="flex-shrink-0 mr-2 mt-1 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
             <div className="flex-1 text-neutral-900 dark:text-white text-sm mb-4 break-words overflow-hidden">
-            <MarkdownRenderer content={content} />
+                <MarkdownRenderer content={content} />
             </div>
         </div>
         );

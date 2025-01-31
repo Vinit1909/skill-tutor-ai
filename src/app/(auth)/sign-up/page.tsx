@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createUserWithEmailAndPassword } from "firebase/auth"
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { useRouter } from "next/navigation"
@@ -34,6 +34,11 @@ export default function SignUpPage() {
             // Create user in Firebase Auth
             const userCred = await createUserWithEmailAndPassword(auth, email, password)
             const user = userCred.user
+
+            //Update user profile
+            await updateProfile(user, {
+                displayName: displayName,
+            })
 
             // Create user doc in Firestore
             await setDoc(doc(db, "users", user.uid), {
