@@ -4,6 +4,8 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math" // Import remark-math for LaTeX parsing
+import rehypeMathjax from "rehype-mathjax" // Import rehype-mathjax for LaTeX rendering
 import { Highlight, themes } from "prism-react-renderer"
 import { ClipboardCheck, Copy } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -35,7 +37,8 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]} // Add remark-math for LaTeX parsing
+      rehypePlugins={[rehypeMathjax]} // Add rehype-mathjax for LaTeX rendering
       components={{
         code({ node, inline, className, children, ...props }: CodeProps) {
           const match = /language-(\w+)/.exec(className || "")
@@ -62,6 +65,27 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
               </code>
             )
           }
+        },
+        // Add a custom component for math blocks ($$...$$)
+        // Custom component for math blocks ($$...$$)
+        div({ node, className, children, ...props }) {
+            if (className?.includes("math-display")) {
+              return (
+                <div style={{ overflowX: "auto" }}>
+                  <div className="math-block" {...props}>
+                    {children}
+                  </div>
+                </div>
+              )
+            }
+            return <div {...props}>{children}</div>
+        },
+        // Custom component for inline math ($...$)
+        span({ node, className, children, ...props }) {
+            if (className?.includes("math-inline")) {
+                return <span className="math-inline" {...props}>{children}</span>
+            }
+            return <span {...props}>{children}</span>
         },
         h1: ({ node, children, ...props }) => (
           <h1 className="text-2xl font-bold mt-6 mb-4" {...props}>

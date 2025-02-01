@@ -8,12 +8,15 @@ import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbP
 import { Separator } from "@/components/ui/separator"
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { BookMarked, LayoutDashboard, MessageSquareX, WandSparkles } from "lucide-react";
+import { BookMarked, LayoutDashboard, Loader, Loader2, MessageSquareX, WandSparkles } from "lucide-react";
 import Chat, { ChatRef } from "./chat";
 import OnboardingWizard from "@/components/learn-page/onboardingWizard";
+import { QuestionCard, QuestionData } from "@/components/learn-page/question-card";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 import { getSkillSpace } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
-import { clearChatmessages } from "@/lib/skillChat";
+import { clearChatmessages, loadChatMessages } from "@/lib/skillChat";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import Roadmap from "./roadmap";
 import DarkModeToggle from "@/components/dark-mode-toggle";
@@ -36,11 +39,14 @@ function LearnLayout({skillId}: {skillId?: string}) {
     const {user, loading} = useAuthContext();
 	const [skill, setSkill] = useState<any>(null);
 	const [showWizard, setShowWizard] = useState(false);
+	const [questions, setQuestions] = useState<QuestionData[]>([]);
+	const [chatMessages, setChatMessages] = useState<any[]>([]);
+	const [fetching, setFetching] = useState(true);
+
 	const chatRef = useRef<ChatRef>(null)
 
 	useEffect(() => {
 		if (!user?.uid || !skillId) return;
-		
 		getSkillSpace(user.uid, skillId)
 			.then((doc) => {
 				if (doc) {
@@ -55,6 +61,19 @@ function LearnLayout({skillId}: {skillId?: string}) {
 			.catch((err) => console.log(err));
 	}, [user, skillId]);
 
+	useEffect(() => {
+		if (!user?.uid || !skillId) return;
+		fetchQuestions(user.uid, skillId).then((qs) => setQuestions(qs));
+	}, [user, skillId]);
+
+	useEffect(() => {
+		if (!user?.uid || !skillId) return;
+		loadChatMessages(user.uid, skillId).then((msgs) => {
+		  setChatMessages(msgs);
+		  setFetching(false);
+		});
+	}, [user, skillId]);
+
 	async function handleClearChatClick() {
 		if (!user?.uid || !skillId) return;
 
@@ -67,17 +86,51 @@ function LearnLayout({skillId}: {skillId?: string}) {
 	async function handleWizardComplete() {
 		setShowWizard(false);
 		if (!user?.uid || !skillId) return;
-
 		const updated = await getSkillSpace(user.uid, skillId);
 		setSkill(updated);
+		const qs = await fetchQuestions(user.uid, skillId);
+		setQuestions(qs);
 	}
 
 	if (loading) {
-		return <div>Loading...</div>
+		return (
+			<div className="flex items-center justify-center h-screen w-screen">
+				<div className="text-md text-neutral-500 dark:text-neutral-400">
+					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading...</div>
+				</div>
+			</div>
+		);
 	}
 
-	if (!skill) {
-		return <div>Loading skill...</div>;
+	if (!skill && !fetching) {
+		return (
+			<div className="flex items-center justify-center h-screen w-screen">
+				<div className="text-md text-neutral-500 dark:text-neutral-400">
+					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading Skill...</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (showWizard && user && skillId) {
+		return (
+		  <OnboardingWizard
+			skillName={skill?.name || "Unknown"}
+			uid={user.uid}
+			skillId={skillId}
+			onComplete={handleWizardComplete}
+		  />
+		);
+	}
+	
+	// If we are still fetching chat messages, show a loading
+	if (fetching) {
+		return (
+			// <div>Loading Chat / Questions...</div>;
+			<div className="text-md text-neutral-500 dark:text-neutral-400 h-screen w-screen flex items-center justify-center">
+				<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading Chat...</div>
+			</div>
+		)
 	}
 
     return (
@@ -139,10 +192,25 @@ function LearnLayout({skillId}: {skillId?: string}) {
             </header>
 
             {/* Chat interface */}
-            <div className="flex-1 min-h-0 ">
-            	<Chat ref={chatRef} skillId={skillId} />
+			<div className="flex-1 min-h-0 overflow-auto">
+            	<Chat 
+					ref={chatRef} 
+					skillId={skillId} 
+					questions={questions}
+					isChatEmpty = {chatMessages.length === 0}
+				/>
             </div>
           </SidebarInset>
         </SidebarProvider>
     );
+}
+
+async function fetchQuestions(uid: string, skillId: string) {
+	const ref = collection(db, "users", uid, "skillspaces", skillId, "questions");
+	const snap = await getDocs(ref);
+	const qs: QuestionData[] = [];
+	snap.forEach((docSnap) => {
+		qs.push({id: docSnap.id, ...docSnap.data()} as QuestionData);
+	});
+	return qs.slice(0, 4);
 }

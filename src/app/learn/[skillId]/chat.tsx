@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { FaArrowUp } from "react-icons/fa";
-import { VscRobot } from "react-icons/vsc";
 import { MarkdownRenderer } from "@/components/learn-page/markdownrenderer";
 import { getSkillSpace } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
 import { loadChatMessages, addChatMessage } from "@/lib/skillChat";
 import { Orbit } from "lucide-react";
+import { ICONS, COLORS } from "@/lib/constants";
+import { shuffleArray } from "@/lib/utils";
+import { QuestionCard, QuestionData } from "@/components/learn-page/question-card";
 
 interface ChatMessage {
     role: "user" | "assistant";
@@ -29,15 +31,20 @@ export interface ChatRef {
 
 interface ChatProps {
     skillId?: string;
+    questions?: QuestionData[];
+    isChatEmpty?: boolean;
 }
 
 
-const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId }, ref) {
+const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions = [], isChatEmpty}, ref) {
     const { user } = useAuthContext();
     const [skill, setSkill] = useState<any>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState("");
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [randomCards, setRandomCards] = useState<
+        {question: QuestionData; Icon: any; iconColor: string}[]
+    >([])
 
     // Expose a method to clear local chat state
     useImperativeHandle(ref, () => ({
@@ -56,27 +63,54 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId }, ref) {
         if (!user?.uid || !skillId) return;
 
         getSkillSpace(user.uid, skillId)
-        .then((doc) => {
-            if (doc) setSkill(doc);
-        })
-        .catch((err) => console.error("Error fetching skill doc:", err));
+            .then((doc) => {
+                if (doc) setSkill(doc);
+            })
+            .catch((err) => console.error("Error fetching skill doc:", err));
 
         loadChatMessages(user.uid, skillId)
-        .then((msgs) => {
-            const loaded = msgs.map((m) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-            }));
-            if (loaded.length === 0) {
-            loaded.push({
-                role: "assistant",
-                content: "Welcome to the Learn Section, I'm Groq!",
-            });
-            }
-            setMessages(loaded);
-        })
-        .catch((err) => console.error("Error loading chat messages:", err));
+            .then((msgs) => {
+                const loaded = msgs.map((m) => ({
+                role: m.role as "user" | "assistant",
+                content: m.content,
+                }));
+                if (loaded.length === 0) {
+                loaded.push({
+                    role: "assistant",
+                    content: "Welcome to the learn section!",
+                });
+                }
+                setMessages(loaded);
+            })
+            .catch((err) => console.error("Error loading chat messages:", err));
     }, [user, skillId]);
+
+    // pick random questions, logo, color
+    useEffect(() => {
+        const localIsEmpty = messages.length <= 1;
+
+        if (localIsEmpty && questions.length > 0) {
+            // shuffle questions
+            const shuffledQuestions = shuffleArray(questions);
+            const questionSubset = shuffledQuestions.slice(0, 4);
+            // shuffle icons
+            const iconShuffled = shuffleArray(ICONS);
+            const iconSubset = iconShuffled.slice(0, 4)
+            // shuffle colors
+            const colorShuffled = shuffleArray(COLORS);
+            const colorSubset = colorShuffled.slice(0, 4)
+
+            // combined
+            const combined = questionSubset.map((q, i) => ({
+                question: q,
+                Icon: iconSubset[i],
+                iconColor: colorSubset[i],
+            }))
+            setRandomCards(combined)
+        } else {
+            setRandomCards([]);
+        }
+    }, [questions, messages]);
 
     // Send user message + AI response
     async function handleSend() {
@@ -90,54 +124,54 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId }, ref) {
         setMessages((prev) => [...prev, userMsg]);
 
         if (user?.uid && skillId) {
-        await addChatMessage(user.uid, skillId, "user", userInput);
+            await addChatMessage(user.uid, skillId, "user", userInput);
         }
         setUserInput("");
 
         try {
-        const systemMessage: ChatMessage = {
-            role: "assistant",
-            content: buildSystemPrompt(skill),
-        };
+            const systemMessage: ChatMessage = {
+                role: "assistant",
+                content: buildSystemPrompt(skill),
+            };
 
-        const finalMessages = [systemMessage, ...messages, userMsg];
+            const finalMessages = [systemMessage, ...messages, userMsg];
 
-        const response = await fetch("/api/llm", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: finalMessages }),
-        });
+            const response = await fetch("/api/llm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messages: finalMessages }),
+            });
 
-        if (!response.ok) {
-            throw new Error(`LLM call failed with status ${response.status}`);
-        }
+            if (!response.ok) {
+                throw new Error(`LLM call failed with status ${response.status}`);
+            }
 
-        const data = await response.json();
-        if (data.error) {
-            throw new Error(data.error);
-        }
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
-        const aiContent = data.content || "No response content.";
-        const aiMsg: ChatMessage = {
-            role: "assistant",
-            content: aiContent,
-        };
-        setMessages((prev) => [...prev, aiMsg]);
+            const aiContent = data.content || "No response content.";
+            const aiMsg: ChatMessage = {
+                role: "assistant",
+                content: aiContent,
+            };
+            setMessages((prev) => [...prev, aiMsg]);
 
-        if (user?.uid && skillId) {
-            await addChatMessage(user.uid, skillId, "assistant", aiContent);
-        }
+            if (user?.uid && skillId) {
+                await addChatMessage(user.uid, skillId, "assistant", aiContent);
+            }
         } catch (err: any) {
-        console.error("Error calling LLM:", err);
-        const errorMsg: ChatMessage = {
-            role: "assistant",
-            content: `Error: ${err.message}`,
-        };
-        setMessages((prev) => [...prev, errorMsg]);
+            console.error("Error calling LLM:", err);
+            const errorMsg: ChatMessage = {
+                role: "assistant",
+                content: `Error: ${err.message}`,
+            };
+            setMessages((prev) => [...prev, errorMsg]);
 
-        if (user?.uid && skillId) {
-            await addChatMessage(user.uid, skillId, "assistant", errorMsg.content);
-        }
+            if (user?.uid && skillId) {
+                await addChatMessage(user.uid, skillId, "assistant", errorMsg.content);
+            }
         }
     }
 
@@ -148,37 +182,57 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId }, ref) {
         }
     }, [messages]);
 
+    const localIsEmpty = messages.length === 0 || (
+        messages.length === 1 && messages[0].content.includes("Welcome to the learn section!")
+    )
+
     return (
         <div className="flex flex-col h-full overflow-hidden">
-        <ScrollArea
-            className="flex-1 px-6 pl-3 space-y-2 scroll-smooth"
-            ref={scrollRef}
-            style={{ height: "100%" }}
-        >
-            <div className="max-w-3xl mx-auto flex flex-col gap-2">
-            {messages.map((msg, i) => (
-                <ChatBubble key={i} role={msg.role} content={msg.content} />
-            ))}
-            </div>
-        </ScrollArea>
+            <ScrollArea
+                className="flex-1 px-6 pl-3 space-y-2 scroll-smooth"
+                ref={scrollRef}
+                style={{ height: "100%" }}
+            >
+                {/* <div className="max-w-3xl mx-auto flex flex-col gap-2"> */}
+                <div className="flex h-full items-center justify-center">
+                    {localIsEmpty ? (
+                        <div className="grid grid-cols-2 gap-4 place-items-center my-40">
+                            {randomCards.map(({question, Icon, iconColor}, idx) => (
+                                <QuestionCard
+                                    key={question.id || idx}
+                                    question={question}
+                                    Icon={Icon}
+                                    iconColorClass={iconColor}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className = "flex flex-col gap-2 w-full max-w-3xl mx-auto py-4">
+                            {messages.map((msg, i) => (
+                                <ChatBubble key={i} role={msg.role} content={msg.content} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </ScrollArea>
 
-        <div className="border border-r bg-neutral-50 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl flex gap-2 max-w-3xl mx-auto w-full mb-8">
-            <Textarea
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            placeholder="Type your question..."
-            onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-                }
-            }}
-            className="bg-neutral-50 dark:bg-[hsl(0,0%,18%)] resize-none h-28 w-full rounded-3xl custom-scrollbar"
-            />
-            <Button onClick={handleSend} className="rounded-full p-2.5 self-end mb-4 mr-4">
-            <FaArrowUp />
-            </Button>
-        </div>
+            <div className="border border-r bg-neutral-50 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl flex gap-2 max-w-3xl mx-auto w-full mb-8">
+                <Textarea
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    placeholder="Type your question..."
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                        }
+                    }}
+                    className="bg-neutral-50 dark:bg-[hsl(0,0%,18%)] resize-none h-28 w-full rounded-3xl custom-scrollbar"
+                />
+                <Button onClick={handleSend} className="rounded-full p-2.5 self-end mb-4 mr-4">
+                    <FaArrowUp />
+                </Button>
+            </div>
         </div>
     );
 });
@@ -199,7 +253,8 @@ function buildSystemPrompt(skill: any | null) {
     const roadmapJSON = JSON.stringify(skill.roadmapJSON || { title: "", nodes: [] });
 
     return `
-        You are a fun, engaging tutor.
+        You are a fun, enthsiastic, motivating, engaging tutor.
+        You are always hyped up about teaching the concpets and making the user want to learn from you more.
         Your domain is ${skillName}.
         The user's current level is ${level}.
         Their goals: ${goals}.
@@ -209,7 +264,8 @@ function buildSystemPrompt(skill: any | null) {
         ${roadmapJSON}
 
         Please strictly reference the roadmap's nodes and do not skip around.
-        Feel free to be slightly humorous or encouraging, but always keep the skill content in mind.
+        Systematically follow the roadmap and make sure that the user understands each concept in depth.
+        Feel free to be humorous and encouraging, but always keep the skill content in mind.
         Also do not try to link the topics that are outside the roadmap.
         If the user asks for some topic outside the roadmap that is not related to the Skill, 
         then answer politely to continue with the current topics in the roadmap.

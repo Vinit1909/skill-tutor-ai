@@ -1,6 +1,8 @@
 import { generateRoadmap } from "@/lib/roadmapAI";
 import { getSkillSpace, updateSkillSpace } from "@/lib/skillspace";
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/firebase";
+import { doc, collection, addDoc, getDocs, deleteDoc } from "firebase/firestore";
 
 export async function POST(req: NextRequest) {
     try {
@@ -12,21 +14,43 @@ export async function POST(req: NextRequest) {
         }
         const skillName = skill.name || "Unknown Skill";
 
-        const roadmapJSON = await generateRoadmap({
+        const { roadmap, questions } = await generateRoadmap({
             skillName, 
             level, 
             goals, 
             priorKnowledge,
         });
 
+        await deleteOldQuestions(uid, skillId);
+
         await updateSkillSpace(uid, skillId, {
             roadmapContext: {level, goals, priorKnowledge},
-            roadmapJSON,
+            roadmapJSON: roadmap,
         });
 
-        return NextResponse.json({success: true, roadmapJSON});
+        const skillRef = doc(db, "users", uid, "skillspaces", skillId)
+        const questionsRef = collection(skillRef, "questions")
+
+        for (const q of questions) {
+            await addDoc(questionsRef, q);
+        }
+
+        return NextResponse.json({
+            success: true,
+            roadmap,
+            questions,
+        });
     } catch (err:any) {
-        console.error(err);
+        console.error("Error in /api/generate-roadmap:", err);
         return NextResponse.json({error: err.message}, {status: 500})
+    }
+}
+
+async function deleteOldQuestions(uid: string, skillId: string) {
+    const skillRef = doc(db, "users", uid, "skillspaces", skillId);
+    const questionsRef = collection(skillRef, "questions");
+    const snap = await getDocs(questionsRef);
+    for (const docSnap of snap.docs) {
+        await deleteDoc(docSnap.ref);
     }
 }
