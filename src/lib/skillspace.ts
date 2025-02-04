@@ -65,6 +65,28 @@ export async function deleteSkillSpace(uid: string, docId: string) {
     await deleteDoc(docRef)
 }
 
+// handle deletion of subcollections when skillspace is deleted
+export async function deleteSkillSpaceDeep(
+    uid: string,
+    skillId: string
+) : Promise<void> {
+    const subCollections = ["chats", "questions"];
+    const skillRef = doc(db, "users", uid, "skillspaces", skillId);
+
+    for (const subCol of subCollections) {
+        const subColRef = collection(skillRef, subCol);
+        const snap = await getDocs(subColRef);
+
+        const deletePromises: Promise<void>[] = [];
+        snap.forEach((docSnap) => {
+            deletePromises.push(deleteDoc(docSnap.ref));
+        });
+
+        await Promise.all(deletePromises);
+    }
+    await deleteDoc(skillRef);
+}
+
 // GET a single skill doc
 export async function getSkillSpace(uid: string, docId: string): Promise<SkillSpaceData | null> {
     const docRef = doc(db, "users", uid, "skillspaces", docId);

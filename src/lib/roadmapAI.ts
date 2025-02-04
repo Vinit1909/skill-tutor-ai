@@ -43,7 +43,6 @@ export async function generateRoadmap({
     }
     Instructions for Roadmap:
     The roadmap should be engaging with creative titles for parent nodes, making the user excited about it.        
-    With respect to roadmap for parent nodes try to include some relevant emojis. Do not add emoji for title of the roadmap.
     Align children nodes with the parent nodes with respect to the content.    
     
     Instructions for Questions:

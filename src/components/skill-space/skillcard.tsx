@@ -29,8 +29,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, Trash2, Edit2, Info, CalendarIcon } from 'lucide-react';
 import { useAuthContext } from "@/context/authcontext";
 import { Progress } from "@/components/ui/progress";
-import { SkillSpaceData } from "@/lib/skillspace";
-import { deleteSkillSpace } from "@/lib/skillspace";
+import { SkillSpaceData, deleteSkillSpace, deleteSkillSpaceDeep } from "@/lib/skillspace";
 import { useRouter } from 'next/navigation';
 
 interface SkillCardProps {
@@ -43,10 +42,25 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 	const { user } = useAuthContext();
 	const [isHovered, setIsHovered] = useState(false);
 
+	// async function handleDelete() {
+	// 	if (!user?.uid || !skill.id) return;
+	// 	await deleteSkillSpace(user.uid, skill.id);
+	// 	if (onUpdated) onUpdated();
+	// }
+
 	async function handleDelete() {
 		if (!user?.uid || !skill.id) return;
-		await deleteSkillSpace(user.uid, skill.id);
-		if (onUpdated) onUpdated();
+
+		try {
+			if (!confirm(`Are you sure you want to delete ${skill.name}?`)) {
+				return 
+			}
+			await deleteSkillSpaceDeep(user.uid, skill.id)
+			if (onUpdated) onUpdated()
+		} catch (err) {
+			console.error("Error deleting skillsapce deeply:", err)
+			alert("Failed to delete skillspace. Check console.")
+		}
 	}
 
 	function handleEdit() {

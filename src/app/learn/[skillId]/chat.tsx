@@ -182,12 +182,15 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
 
     if (chatLoading) {
         return (
-            <div className="flex items-center justify-center h-screen w-screen">
-				<div className="text-md text-neutral-500 dark:text-neutral-400">
-					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading chat...</div>
-				</div>
-			</div>
-        )
+            <div className="flex items-center justify-center fixed inset-0">
+                <div className="text-md text-neutral-500 dark:text-neutral-400">
+                    <div className="flex gap-2 animate-shiny-text">
+                        <Loader className="animate-spin" />
+                        Loading cards...
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
