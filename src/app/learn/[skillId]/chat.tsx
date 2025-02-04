@@ -35,7 +35,6 @@ interface ChatProps {
     isChatEmpty?: boolean;
 }
 
-
 const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions = []}, ref) {
     const { user } = useAuthContext();
     const [skill, setSkill] = useState<any>(null);
@@ -110,52 +109,64 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         }
     }, [chatLoading, questions, messages]);
 
-    // Send user message + AI response
-    async function handleSend() {
-        if (!userInput.trim()) return;
+    // Auto-scroll
+    useEffect(() => {
+        if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [messages]);
+
+    // UTILITY: Send a message to chat with given text
+    async function sendUserMessage(text: string) {
+        if (!text.trim()) return;
         if (!skill) {
-        console.error("Skill not loaded, cannot build system message yet.");
-        return;
+            console.error("Skill not loaded, cannot build system message yet.");
+            return;
         }
 
-        const userMsg: ChatMessage = { role: "user", content: userInput };
+        // Add user msg to local state
+        const userMsg: ChatMessage = {role: "user", content: text};
         setMessages((prev) => [...prev, userMsg]);
 
+        // save user msg to firestore
         if (user?.uid && skillId) {
-            await addChatMessage(user.uid, skillId, "user", userInput);
+            await addChatMessage(user.uid, skillId, "user", text);
         }
-        setUserInput("");
 
+        // build system prompt
+        const systemMessage: ChatMessage = {
+            role: "assistant",
+            content: buildSystemPrompt(skill),
+        }
+
+        // merge msgs
+        const finalMessages = [systemMessage, ...messages, userMsg];
+
+        // call LLM
         try {
-            const systemMessage: ChatMessage = {
-                role: "assistant",
-                content: buildSystemPrompt(skill),
-            };
-
-            const finalMessages = [systemMessage, ...messages, userMsg];
-
             const response = await fetch("/api/llm", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages: finalMessages }),
+                headers: { "Content-Type": "application/json"},
+                body: JSON.stringify({messages: finalMessages}),
             });
-
             if (!response.ok) {
-                throw new Error(`LLM call failed with status ${response.status}`);
+                throw new Error(`LLM call failed: ${response.status}`);
             }
 
-            const data = await response.json();
+            const data = await response.json()
             if (data.error) {
                 throw new Error(data.error);
             }
 
-            const aiContent = data.content || "No response content.";
+            const aiContent = data.content ?? "No reponse content.";
             const aiMsg: ChatMessage = {
                 role: "assistant",
                 content: aiContent,
             };
+            // add ai msg to local state
             setMessages((prev) => [...prev, aiMsg]);
 
+            // save ai msg to firestore
             if (user?.uid && skillId) {
                 await addChatMessage(user.uid, skillId, "assistant", aiContent);
             }
@@ -166,19 +177,83 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                 content: `Error: ${err.message}`,
             };
             setMessages((prev) => [...prev, errorMsg]);
-
             if (user?.uid && skillId) {
                 await addChatMessage(user.uid, skillId, "assistant", errorMsg.content);
             }
         }
     }
 
-    // Auto-scroll
-    useEffect(() => {
-        if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [messages]);
+    async function handleSend() {
+        await sendUserMessage(userInput);
+        setUserInput("");
+    }
+
+    function handleQuestionCardClick(questionText: string) {
+        sendUserMessage(questionText);
+    }
+
+    // Send user message + AI response
+    // async function handleSend() {
+    //     if (!userInput.trim()) return;
+    //     if (!skill) {
+    //     console.error("Skill not loaded, cannot build system message yet.");
+    //     return;
+    //     }
+
+    //     const userMsg: ChatMessage = { role: "user", content: userInput };
+    //     setMessages((prev) => [...prev, userMsg]);
+
+    //     if (user?.uid && skillId) {
+    //         await addChatMessage(user.uid, skillId, "user", userInput);
+    //     }
+    //     setUserInput("");
+
+    //     try {
+    //         const systemMessage: ChatMessage = {
+    //             role: "assistant",
+    //             content: buildSystemPrompt(skill),
+    //         };
+
+    //         const finalMessages = [systemMessage, ...messages, userMsg];
+
+    //         const response = await fetch("/api/llm", {
+    //             method: "POST",
+    //             headers: { "Content-Type": "application/json" },
+    //             body: JSON.stringify({ messages: finalMessages }),
+    //         });
+
+    //         if (!response.ok) {
+    //             throw new Error(`LLM call failed with status ${response.status}`);
+    //         }
+
+    //         const data = await response.json();
+    //         if (data.error) {
+    //             throw new Error(data.error);
+    //         }
+
+    //         const aiContent = data.content || "No response content.";
+    //         const aiMsg: ChatMessage = {
+    //             role: "assistant",
+    //             content: aiContent,
+    //         };
+    //         setMessages((prev) => [...prev, aiMsg]);
+
+    //         if (user?.uid && skillId) {
+    //             await addChatMessage(user.uid, skillId, "assistant", aiContent);
+    //         }
+    //     } catch (err: any) {
+    //         console.error("Error calling LLM:", err);
+    //         const errorMsg: ChatMessage = {
+    //             role: "assistant",
+    //             content: `Error: ${err.message}`,
+    //         };
+    //         setMessages((prev) => [...prev, errorMsg]);
+
+    //         if (user?.uid && skillId) {
+    //             await addChatMessage(user.uid, skillId, "assistant", errorMsg.content);
+    //         }
+    //     }
+    // }
 
     if (chatLoading) {
         return (
@@ -210,6 +285,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                                     question={question}
                                     Icon={Icon}
                                     iconColorClass={iconColor}
+                                    onQuestionClick={handleQuestionCardClick}
                                 />
                             ))}
                         </div>

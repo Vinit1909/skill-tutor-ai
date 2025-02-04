@@ -34,7 +34,6 @@ export async function generateRoadmap({
                 "nodeId": "1",
                 "question": "...",
                 "shortDesc": "...",
-                "topicLogoKey": "...",
             },
             {
                 ...
@@ -46,7 +45,10 @@ export async function generateRoadmap({
     Align children nodes with the parent nodes with respect to the content.    
     
     Instructions for Questions:
-    Keep the question short and concise and of equal lengths to each other for better UI.
+    Generate questions that are fun and should be relevant to the Roadmap.
+    Make sure the questions are short and concise and are of equal lengths.
+    These questions should be something that users would like to ask, or users would not have thought about.
+    The short desc should be like the area of the skill or relevant info (not more than two words).
     
     General Instructions:
     No extra text, no commentary, just the JSON structure.

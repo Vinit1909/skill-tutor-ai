@@ -19,15 +19,26 @@ interface QuestionCardProps {
     question: QuestionData;
     Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
     iconColorClass: string;
+    onQuestionClick?: (text:string) => void;
 }
 
 export const QuestionCard: FC<QuestionCardProps> = ({
     question,
     Icon,
     iconColorClass,
+    onQuestionClick,
 }) =>  {
+    function handleClick() {
+        onQuestionClick?.(question.question);
+    }
+
     return (
-        <Card className="group w-full max-w-xs shadow-lg hover:shadow-xl hover:cursor-pointer transition-shadow duration-300 rounded-3xl overflow-hidden dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
+        <Card
+            onClick={handleClick} 
+            className="group w-full max-w-xs shadow-lg hover:shadow-xl hover:cursor-pointer
+            transition-shadow duration-300 rounded-3xl overflow-hidden 
+            dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl"
+        >
             <CardContent className="p-4">
                 <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">
