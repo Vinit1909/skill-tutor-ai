@@ -234,7 +234,7 @@ export default function DashboardPage() {
             	</div>
           	</div>
 		) : (
-			<div className="flex-1 overflow-auto px-4 py-4 w-full mt-20">
+			<div className="flex-1 overflow-auto px-4 py-4 w-full mt-14 scroll-mt-5">
 				{skillSpaces.length === 0 ? (
 					<div className="flex flex-col items-center space-y-4 p-10">
 						<Alert className="flex flex-col items-center justify-center max-w-md mx-auto p-6 rounded-lg shadow-md dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">

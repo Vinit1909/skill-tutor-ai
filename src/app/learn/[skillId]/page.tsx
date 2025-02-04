@@ -212,5 +212,5 @@ async function fetchQuestions(uid: string, skillId: string) {
 	snap.forEach((docSnap) => {
 		qs.push({id: docSnap.id, ...docSnap.data()} as QuestionData);
 	});
-	return qs.slice(0, 4);
+	return qs;
 }

@@ -15,7 +15,7 @@ import { MarkdownRenderer } from "@/components/learn-page/markdownrenderer";
 import { getSkillSpace } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
 import { loadChatMessages, addChatMessage } from "@/lib/skillChat";
-import { Orbit } from "lucide-react";
+import { Loader, Orbit } from "lucide-react";
 import { ICONS, COLORS } from "@/lib/constants";
 import { shuffleArray } from "@/lib/utils";
 import { QuestionCard, QuestionData } from "@/components/learn-page/question-card";
@@ -36,60 +36,58 @@ interface ChatProps {
 }
 
 
-const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions = [], isChatEmpty}, ref) {
+const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions = []}, ref) {
     const { user } = useAuthContext();
     const [skill, setSkill] = useState<any>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [chatLoading, setChatLoading] = useState(true)
     const [userInput, setUserInput] = useState("");
     const scrollRef = useRef<HTMLDivElement>(null);
     const [randomCards, setRandomCards] = useState<
         {question: QuestionData; Icon: any; iconColor: string}[]
     >([])
 
+    function isChatEmpty() {
+        return messages.length === 0;
+    }
+
     // Expose a method to clear local chat state
     useImperativeHandle(ref, () => ({
         clearLocalChat() {
-        setMessages([
-            {
-            role: "assistant",
-            content: "Welcome to a fresh chat! I'm Groq, your tutor!",
-            },
-        ]);
+        setMessages([]);
         },
     }));
 
     // On mount, fetch skill doc & load chat messages from Firestore
     useEffect(() => {
         if (!user?.uid || !skillId) return;
-
         getSkillSpace(user.uid, skillId)
             .then((doc) => {
                 if (doc) setSkill(doc);
             })
             .catch((err) => console.error("Error fetching skill doc:", err));
+        }, [user, skillId]);
 
+    useEffect(() => {
+        if (!user?.uid || !skillId) return;
         loadChatMessages(user.uid, skillId)
             .then((msgs) => {
                 const loaded = msgs.map((m) => ({
-                role: m.role as "user" | "assistant",
-                content: m.content,
+                    role: m.role as "user" | "assistant",
+                    content: m.content,
                 }));
-                if (loaded.length === 0) {
-                loaded.push({
-                    role: "assistant",
-                    content: "Welcome to the learn section!",
-                });
-                }
                 setMessages(loaded);
             })
-            .catch((err) => console.error("Error loading chat messages:", err));
+            .catch((err) => console.error("Error loading chat messages:", err))
+            .finally(() => setChatLoading(false));
     }, [user, skillId]);
 
     // pick random questions, logo, color
     useEffect(() => {
         const localIsEmpty = messages.length <= 1;
+        if (chatLoading) return;
 
-        if (localIsEmpty && questions.length > 0) {
+        if (isChatEmpty() && questions.length > 0) {
             // shuffle questions
             const shuffledQuestions = shuffleArray(questions);
             const questionSubset = shuffledQuestions.slice(0, 4);
@@ -110,7 +108,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         } else {
             setRandomCards([]);
         }
-    }, [questions, messages]);
+    }, [chatLoading, questions, messages]);
 
     // Send user message + AI response
     async function handleSend() {
@@ -182,9 +180,15 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         }
     }, [messages]);
 
-    const localIsEmpty = messages.length === 0 || (
-        messages.length === 1 && messages[0].content.includes("Welcome to the learn section!")
-    )
+    if (chatLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen w-screen">
+				<div className="text-md text-neutral-500 dark:text-neutral-400">
+					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading chat...</div>
+				</div>
+			</div>
+        )
+    }
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
@@ -195,7 +199,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
             >
                 {/* <div className="max-w-3xl mx-auto flex flex-col gap-2"> */}
                 <div className="flex h-full items-center justify-center">
-                    {localIsEmpty ? (
+                    {isChatEmpty() ? (
                         <div className="grid grid-cols-2 gap-4 place-items-center my-40">
                             {randomCards.map(({question, Icon, iconColor}, idx) => (
                                 <QuestionCard
