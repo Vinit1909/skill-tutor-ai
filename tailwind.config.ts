@@ -8,6 +8,14 @@ export default {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  safelist: [
+	{
+	  pattern: /text-(purple|fuchsia|rose|indigo|teal|lime|yellow)-400/,
+	},
+	{
+	  pattern: /dark:text-(purple|fuchsia|rose|indigo|teal|lime|yellow)-200/,
+	},
+  ],  
   theme: {
   	extend: {
   		colors: {

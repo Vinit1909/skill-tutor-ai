@@ -192,69 +192,6 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         sendUserMessage(questionText);
     }
 
-    // Send user message + AI response
-    // async function handleSend() {
-    //     if (!userInput.trim()) return;
-    //     if (!skill) {
-    //     console.error("Skill not loaded, cannot build system message yet.");
-    //     return;
-    //     }
-
-    //     const userMsg: ChatMessage = { role: "user", content: userInput };
-    //     setMessages((prev) => [...prev, userMsg]);
-
-    //     if (user?.uid && skillId) {
-    //         await addChatMessage(user.uid, skillId, "user", userInput);
-    //     }
-    //     setUserInput("");
-
-    //     try {
-    //         const systemMessage: ChatMessage = {
-    //             role: "assistant",
-    //             content: buildSystemPrompt(skill),
-    //         };
-
-    //         const finalMessages = [systemMessage, ...messages, userMsg];
-
-    //         const response = await fetch("/api/llm", {
-    //             method: "POST",
-    //             headers: { "Content-Type": "application/json" },
-    //             body: JSON.stringify({ messages: finalMessages }),
-    //         });
-
-    //         if (!response.ok) {
-    //             throw new Error(`LLM call failed with status ${response.status}`);
-    //         }
-
-    //         const data = await response.json();
-    //         if (data.error) {
-    //             throw new Error(data.error);
-    //         }
-
-    //         const aiContent = data.content || "No response content.";
-    //         const aiMsg: ChatMessage = {
-    //             role: "assistant",
-    //             content: aiContent,
-    //         };
-    //         setMessages((prev) => [...prev, aiMsg]);
-
-    //         if (user?.uid && skillId) {
-    //             await addChatMessage(user.uid, skillId, "assistant", aiContent);
-    //         }
-    //     } catch (err: any) {
-    //         console.error("Error calling LLM:", err);
-    //         const errorMsg: ChatMessage = {
-    //             role: "assistant",
-    //             content: `Error: ${err.message}`,
-    //         };
-    //         setMessages((prev) => [...prev, errorMsg]);
-
-    //         if (user?.uid && skillId) {
-    //             await addChatMessage(user.uid, skillId, "assistant", errorMsg.content);
-    //         }
-    //     }
-    // }
-
     if (chatLoading) {
         return (
             <div className="flex items-center justify-center fixed inset-0">
