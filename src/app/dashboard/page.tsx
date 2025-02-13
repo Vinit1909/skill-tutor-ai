@@ -97,7 +97,7 @@ export default function DashboardPage() {
     return (
 		<div className="flex items-center justify-center h-screen">
 			<div className="text-md text-neutral-500 dark:text-neutral-400">
-				<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading...</div>
+				<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading</div>
 			</div>
 		</div>
 	)
@@ -230,7 +230,7 @@ export default function DashboardPage() {
 		{loadingSkillSpaces ? (
 			<div className="flex items-center justify-center h-screen">
             	<div className="text-md text-neutral-500 dark:text-neutral-400">
-					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading SkillSpaces...</div>
+					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading SkillSpace</div>
             	</div>
           	</div>
 		) : (

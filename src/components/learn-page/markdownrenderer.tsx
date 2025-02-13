@@ -236,7 +236,7 @@ function CodeBlockWithCopy({
         >
           {copied ? (
             <div className="flex items-center">
-              <ClipboardCheck className="mr-1 h-3 w-3" />
+              <ClipboardCheck className="mr-1 h-3 w-3 text-green-500 dark:text-green-400" />
               Copied
             </div>
           ) : (

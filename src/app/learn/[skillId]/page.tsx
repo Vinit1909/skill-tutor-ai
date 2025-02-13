@@ -96,7 +96,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
 		return (
 			<div className="flex items-center justify-center h-screen w-screen">
 				<div className="text-md text-neutral-500 dark:text-neutral-400">
-					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading...</div>
+					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading</div>
 				</div>
 			</div>
 		);
@@ -106,7 +106,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
 		return (
 			<div className="flex items-center justify-center h-screen w-screen">
 				<div className="text-md text-neutral-500 dark:text-neutral-400">
-					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading Skill...</div>
+					<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading Skill</div>
 				</div>
 			</div>
 		);
@@ -128,7 +128,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
 		return (
 			// <div>Loading Chat / Questions...</div>;
 			<div className="text-md text-neutral-500 dark:text-neutral-400 h-screen w-screen flex items-center justify-center">
-				<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading Chat...</div>
+				<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading Chat</div>
 			</div>
 		)
 	}
@@ -197,7 +197,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
 					ref={chatRef} 
 					skillId={skillId} 
 					questions={questions}
-					isChatEmpty = {chatMessages.length === 0}
+					// isChatEmpty = {chatMessages.length === 0}
 				/>
             </div>
           </SidebarInset>

@@ -32,7 +32,7 @@ export interface ChatRef {
 interface ChatProps {
     skillId?: string;
     questions?: QuestionData[];
-    isChatEmpty?: boolean;
+    // isChatEmpty?: boolean;
 }
 
 const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions = []}, ref) {
@@ -184,21 +184,23 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
     }
 
     async function handleSend() {
-        await sendUserMessage(userInput);
+        if (!userInput.trim()) return;
+        const text = userInput;
         setUserInput("");
+        await sendUserMessage(text);
     }
 
     function handleQuestionCardClick(questionText: string) {
         sendUserMessage(questionText);
     }
 
-    if (chatLoading) {
+    if (chatLoading && isChatEmpty()) {
         return (
             <div className="flex items-center justify-center fixed inset-0">
                 <div className="text-md text-neutral-500 dark:text-neutral-400">
                     <div className="flex gap-2 animate-shiny-text">
                         <Loader className="animate-spin" />
-                        Loading cards...
+                        Loading Chat
                     </div>
                 </div>
             </div>

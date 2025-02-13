@@ -26,12 +26,12 @@ export async function generateRoadmap({
         "roadmap": {
             "title": "${skillName} Roadmap",
             "nodes": [
-                {"id": "1", "title": "...", "status": "NOT_STARTED","children": [...]}
+                {"id": "uniqueTopicId", "title": "...", "status": "NOT_STARTED", "weight": 1, "children": [...]}
             ]
         },
         "questions": [
             {
-                "nodeId": "1",
+                "nodeId": "uniqueTopicId",
                 "question": "...",
                 "shortDesc": "...",
             },
@@ -42,7 +42,8 @@ export async function generateRoadmap({
     }
     Instructions for Roadmap:
     The roadmap should be engaging with creative titles for parent nodes, making the user excited about it.        
-    Align children nodes with the parent nodes with respect to the content.    
+    Align children nodes with the parent nodes with respect to the content.
+    Weight the nodes according to their level of importance. It is for tracking progress.
     
     Instructions for Questions:
     Generate questions that are fun and should be relevant to the Roadmap.
@@ -72,6 +73,15 @@ export async function generateRoadmap({
         console.error("Error parsing AI JSON:", err)
         combined = {roadmap: null, questions: []};
     }
+
+    if (combined.roadmap && Array.isArray(combined.roadmap.nodes)) {
+        combined.roadmap.nodes = combined.roadmap.nodes.map((n: any) => ({
+            ...n,
+            status: n.status || "NOT_STARTED",
+            weight: n.weight || 1,
+        }))
+    }
+
     return {
         roadmap: combined.roadmap || { title: "", nodes: [] },
         questions: combined.questions || [],
