@@ -15,14 +15,19 @@ import { MarkdownRenderer } from "@/components/learn-page/markdownrenderer";
 import { getSkillSpace } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
 import { loadChatMessages, addChatMessage } from "@/lib/skillChat";
-import { Loader, Orbit } from "lucide-react";
+import { updateRoadmapNodeStatus } from "@/lib/skillspace";
+import { CheckCheck, CircleCheckBig, ListStart, Loader, MessageCircleMore, Orbit, SendToBack, Undo2, UndoDot, WrapText } from "lucide-react";
 import { ICONS, COLORS } from "@/lib/constants";
 import { shuffleArray } from "@/lib/utils";
 import { QuestionCard, QuestionData } from "@/components/learn-page/question-card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 
 interface ChatMessage {
     role: "user" | "assistant";
     content: string;
+    nodeId?: string;
+    skillId?: string
 }
 
 export interface ChatRef {
@@ -45,6 +50,21 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
     const [randomCards, setRandomCards] = useState<
         {question: QuestionData; Icon: any; iconColor: string}[]
     >([])
+    const [activeNode, setActiveNode] = useState<string | null>(null);
+
+    useEffect(() => {
+        async function fetchActiveNode() {
+            if (user?.uid && skillId) {
+                const skillData = await getSkillSpace(user.uid, skillId);
+                if (skillData?.roadmapJSON?.nodes?.length) {
+                    const firstNodeId = skillData.roadmapJSON.nodes[0].id;
+                    console.log("Fetched activeNode: ", firstNodeId)
+                    setActiveNode(firstNodeId);
+                }
+            }
+        }
+        fetchActiveNode()
+    }, [user, skillId]);
 
     function isChatEmpty() {
         return messages.length === 0;
@@ -83,7 +103,6 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
 
     // pick random questions, logo, color
     useEffect(() => {
-        const localIsEmpty = messages.length <= 1;
         if (chatLoading) return;
 
         if (isChatEmpty() && questions.length > 0) {
@@ -133,10 +152,16 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
             await addChatMessage(user.uid, skillId, "user", text);
         }
 
+        if (!activeNode) {
+            console.error("activeNode is not set!")
+        }
+
         // build system prompt
         const systemMessage: ChatMessage = {
             role: "assistant",
             content: buildSystemPrompt(skill),
+            nodeId: activeNode ?? "",
+            skillId,
         }
 
         // merge msgs
@@ -162,6 +187,8 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
             const aiMsg: ChatMessage = {
                 role: "assistant",
                 content: aiContent,
+                nodeId: activeNode ?? "",
+                skillId,
             };
             // add ai msg to local state
             setMessages((prev) => [...prev, aiMsg]);
@@ -231,7 +258,14 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                     ) : (
                         <div className = "flex flex-col gap-2 w-full max-w-3xl mx-auto py-4">
                             {messages.map((msg, i) => (
-                                <ChatBubble key={i} role={msg.role} content={msg.content} />
+                                <ChatBubble 
+                                    key={i} 
+                                    role={msg.role} 
+                                    content={msg.content} 
+                                    nodeId={msg.nodeId || (activeNode ?? undefined)}
+                                    skillId={skillId}
+                                    onMessageUpdate={(newMsg) => setMessages(prev => [...prev, newMsg])}
+                                />
                             ))}
                         </div>
                     )}
@@ -295,15 +329,90 @@ function buildSystemPrompt(skill: any | null) {
         `;
 }
 
-function ChatBubble({ role, content }: ChatMessage) {
+interface ChatBubbleProps extends ChatMessage {
+    onMessageUpdate: (newMsg: ChatMessage) => void;
+}
+
+function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBubbleProps) {
+    const { user } = useAuthContext()
+
+    async function handleMarkComplete() {
+        if (!user?.uid || !skillId || !nodeId) return
+        try {
+            const updatedNodeId = await updateRoadmapNodeStatus(user.uid, skillId, nodeId, "COMPLETED") 
+            const newMessage: ChatMessage = {
+                role: "assistant",
+                content: "Updated node status to COMPLETED",
+                nodeId: updatedNodeId,
+                skillId,
+            };
+            onMessageUpdate(newMessage)
+        } catch (err) {
+            console.error("Error marking node complete: ", err)
+        }
+    }
+
+    console.log("nodeId value: ", nodeId)
+    
     if (role === "assistant") {
         return (
-        <div className="flex items-start w-full rounded-xl gap-4">
-            <Orbit className="flex-shrink-0 mr-2 mt-2 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
-            <div className="flex-1 text-neutral-900 dark:text-white text-sm mb-4 break-words overflow-hidden">
-                <MarkdownRenderer content={content} />
+        
+            <div className="flex items-start w-full rounded-xl gap-4">
+                <Orbit className="flex-shrink-0 mr-2 mt-2 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
+
+                <div className="flex flex-col mb-4">
+                    <div className="flex-1 text-neutral-900 dark:text-white text-sm break-words overflow-hidden">
+                        <MarkdownRenderer content={content} />
+                    </div>
+                    {nodeId && (
+                        <div className="flex">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button 
+                                            className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-xl dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
+                                            size="icon" 
+                                            variant="ghost" 
+                                            onClick={handleMarkComplete}
+                                        >
+                                            <CheckCheck/>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
+                                        Mark as Complete
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-xl dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" size="icon" variant="ghost">
+                                            <ListStart/>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
+                                        Need Explanation
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-xl dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" size="icon" variant="ghost">
+                                            <Undo2/>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
+                                        Go Back
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
         );
     } else {
         return (

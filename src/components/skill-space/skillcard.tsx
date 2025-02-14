@@ -41,6 +41,10 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 	const router = useRouter();
 	const { user } = useAuthContext();
 	const [isHovered, setIsHovered] = useState(false);
+	
+	const progressPercentage = skill.max 
+		? Math.round((skill.value / skill.max) * 100)
+		: 0
 
 	// async function handleDelete() {
 	// 	if (!user?.uid || !skill.id) return;
@@ -70,8 +74,6 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 	function handleGoLearn() {
 		router.push(`/learn/${skill.id}`);
 	}
-
-	const progressPercentage = (skill.value / skill.max) * 100;
 	
 	return (
 		<Card 
@@ -167,7 +169,7 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 				<div className="space-y-2">
 					<div className="flex justify-between text-xs text-muted-foreground">
 						<span>Progress</span>
-						<span>{skill.value} / {skill.max}</span>
+						<span>{skill.value} / {skill.max} done • {progressPercentage}%</span>
 					</div>
 					<Progress 
 						value={progressPercentage} 

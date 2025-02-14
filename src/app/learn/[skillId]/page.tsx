@@ -160,14 +160,14 @@ function LearnLayout({skillId}: {skillId?: string}) {
                 {/* breadcrumb */}
                 <Breadcrumb>
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-black p-1 rounded-md dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
+                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-black p-2 rounded-xl dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
                       <BreadcrumbLink href="/dashboard">
 					  	<div className="flex gap-1 place-items-center"><LayoutDashboard className="h-4 w-4"/>Your Skills</div>
 					  </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />
                     <BreadcrumbItem>
-						<BreadcrumbPage className="hidden md:block hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-1 rounded-md">
+						<BreadcrumbPage className="hidden md:block hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-2 rounded-xl">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
 									<div className="flex gap-1 place-items-center"><BookMarked className="h-4 w-4"/><span>Learn {skill?.name}</span></div>

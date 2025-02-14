@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore"
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc, DocumentData, DocumentReference } from "firebase/firestore"
 import { db } from "./firebase"
 
 export interface SkillSpaceData {
@@ -14,7 +14,16 @@ export interface SkillSpaceData {
         goals?: string
         priorKnowledge?: string
     }
-    roadmapJSON?: any
+    roadmapJSON?: {
+        title: string
+        nodes: Array<{
+            id: string
+            title: string
+            status?: string
+            weight?: number
+            children?: any[]
+        }>
+    }
 }
 
 export async function createSkillSpace(uid: string, name: string, description: string) {
@@ -106,4 +115,50 @@ export async function getSkillSpace(uid: string, docId: string): Promise<SkillSp
         roadmapContext: data.roadmapContext,
         roadmapJSON: data.roadmapJSON, 
     };
+}
+
+// update node's status
+export async function updateRoadmapNodeStatus(
+    uid: string,
+    skillId: string,
+    nodeId: string,
+    newStauts: string
+) {
+    const skillRef = doc(db, "users", uid, "skillspaces", skillId)
+    const snap = await getDoc(skillRef)
+    if (!snap.exists()) {
+        throw new Error("Skill doc does not exist")
+    }
+
+    const skillData = snap.data() as SkillSpaceData
+    if (!skillData.roadmapJSON || !skillData.roadmapJSON.nodes) {
+        throw new Error("No roadmap found in skill doc")
+    }
+
+    const nodes = skillData.roadmapJSON.nodes
+    const nodeIndex = nodes.findIndex((n) => n.id === nodeId)
+    if (nodeIndex === -1) {
+        throw new Error(`Node with id ${nodeId} not found`)
+    }
+
+    nodes[nodeIndex].status = newStauts
+
+    let newValue = 0
+    let maxValue = 0
+
+    for (const n of nodes) {
+        const w = n.weight || 1
+        maxValue += w
+        if (n.status === "COMPLETED") {
+            newValue += w
+        }
+    }
+
+    await updateDoc(skillRef, {
+        "roadmapJSON.nodes": nodes, 
+        value: newValue,
+        max: maxValue,
+    })
+
+    return nodes[nodeIndex].id;
 }
