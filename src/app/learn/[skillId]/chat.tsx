@@ -22,6 +22,7 @@ import { shuffleArray } from "@/lib/utils";
 import { QuestionCard, QuestionData } from "@/components/learn-page/question-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
+import LoadingBubble from "@/components/learn-page/ai-loading";
 
 interface ChatMessage {
     role: "user" | "assistant";
@@ -51,6 +52,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         {question: QuestionData; Icon: any; iconColor: string}[]
     >([])
     const [activeNode, setActiveNode] = useState<string | null>(null);
+    const [isAiResponding, setIsAiResponding] = useState(false);
 
     useEffect(() => {
         async function fetchActiveNode() {
@@ -147,6 +149,9 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         const userMsg: ChatMessage = {role: "user", content: text};
         setMessages((prev) => [...prev, userMsg]);
 
+        // Set loading state to true
+        setIsAiResponding(true);
+
         // save user msg to firestore
         if (user?.uid && skillId) {
             await addChatMessage(user.uid, skillId, "user", text);
@@ -207,6 +212,8 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
             if (user?.uid && skillId) {
                 await addChatMessage(user.uid, skillId, "assistant", errorMsg.content);
             }
+        } finally {
+            setIsAiResponding(false);
         }
     }
 
@@ -267,6 +274,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                                     onMessageUpdate={(newMsg) => setMessages(prev => [...prev, newMsg])}
                                 />
                             ))}
+                            {isAiResponding && <LoadingBubble/>}
                         </div>
                     )}
                 </div>
