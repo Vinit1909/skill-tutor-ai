@@ -110,93 +110,67 @@ export default function DashboardPage() {
 
   return (
 	<main className="flex flex-col w-full h-screen overflow-hidden">
-	  {/* Fixed-ish header area: no scrolling here */}
-	  {/* <div className="flex flex-col items-center shrink-0 max-w-screen-lg w-full mx-auto pt-6 px-15"> */}
-		<div className="flex justify-center items-center w-full fixed top-0 z-10">
-			<div className="flex place-items-center space-x-3 justify-between text-neutral-700 dark:text-neutral-400 flex-1 max-w-screen-lg w-full mx-auto pt-6 pb-4 pr-15 pl-15">
-				{/* TODO: Fix tooltip */}
-				<TooltipProvider>
-				<Dock direction="top">
-					<DockIcon className="pointer-events-none">
-						<AnimatedShinyText
-							className="inline-flex items-center gap-2 px-4 py-1
-									animate-shiny-text transition ease-out
-									hover:text-neutral-600 hover:dark:text-neutral-400"
-						>
-							<Orbit className="h-6 w-6 text-[#6c63ff] dark:text-[#7a83ff]" />
-							Space
-						</AnimatedShinyText>
-					</DockIcon>
-					
-					{/* TODO: Fix the color */}
-					<Separator orientation="vertical" className="h-full" />
+	  <header className="fixed top-0 left-0 right-0 h-14 z-20 bg-white/20 dark:bg-neutral-800/20 backdrop-blur-md">
+        <div className="flex items-center justify-between max-w-screen-lg mx-auto px-8 h-full">
+          <div className="flex items-center gap-2">
+            <Orbit className="h-6 w-6 text-[#6c63ff] dark:text-[#7a83ff]" />
+			<h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-300">SkillSpace</h2>
+            {/* Add more nav items here in the future */}
+          </div>
+          <div className="flex items-center gap-4">
+		  	<Dialog open={openDialog} onOpenChange={setOpenDialog}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" className="flex gap-2 text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50 rounded-full">
+                  <CircleFadingPlus className="h-4 w-4" />
+                  Create SkillSpace
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-white rounded-lg p-4 dark:bg-neutral-900">
+                <DialogHeader>
+                  <DialogTitle>Create SkillSpace</DialogTitle>
+                  <DialogDescription>
+                    Provide a name and description for your new skill space.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">
+                      Skill Name
+                    </Label>
+                    <Input
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="desc" className="text-right">
+                      Description
+                    </Label>
+                    <Input
+                      id="desc"
+                      value={newDesc}
+                      onChange={(e) => setNewDesc(e.target.value)}
+                      className="col-span-3"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    className="min-w-full"
+                    variant="default"
+                    onClick={handleCreateSkillSpace}
+                  >
+                    Create
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+			<UserProfileBadge />
+		  </div>
+        </div>
+      </header>
 
-					<DockIcon>
-						<Tooltip>
-							<TooltipTrigger asChild>
-							<Dialog open={openDialog} onOpenChange={setOpenDialog}>
-								<DialogTrigger asChild>
-									<Button variant="ghost" className="size-12 rounded-xl">
-										<CircleFadingPlus className="h-4 w-4" />
-									</Button>
-								</DialogTrigger>
-								<DialogContent className="bg-white rounded-lg p-4 dark:bg-neutral-900">
-									<DialogHeader>
-										<DialogTitle>Create SkillSpace</DialogTitle>
-										<DialogDescription>
-											Provide a name and description for your new skill space.
-										</DialogDescription>
-									</DialogHeader>
-									<div className="grid gap-4 py-4">
-										<div className="grid grid-cols-4 items-center gap-4">
-											<Label htmlFor="name" className="text-right">
-												Skill Name
-											</Label>
-											<Input
-												value={newName}
-												onChange={(e) => setNewName(e.target.value)}
-												className="col-span-3"
-											/>
-										</div>
-										<div className="grid grid-cols-4 items-center gap-4">
-											<Label htmlFor="desc" className="text-right">
-												Description
-											</Label>
-											<Input
-												id="desc"
-												value={newDesc}
-												onChange={(e) => setNewDesc(e.target.value)}
-												className="col-span-3"
-											/>
-										</div>
-									</div>
-									<DialogFooter>
-										<Button
-											className="min-w-full"
-											variant="default"
-											onClick={handleCreateSkillSpace}
-										>
-											Create
-										</Button>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
-						</TooltipTrigger>
-						<TooltipContent>
-							<p>Add SkillSpace</p>
-						</TooltipContent>
-						</Tooltip>
-					</DockIcon>
-
-					<DockIcon>
-						<UserProfileBadge/>
-					</DockIcon>
-				</Dock>
-				</TooltipProvider>
-			</div>
-		</div>
-	  {/* </div> */}
-  
 	  {/* Scrollable content area: fill the rest of the screen */}
 		{loadingSkillSpaces ? (
 			<div className="flex items-center justify-center h-screen">
@@ -205,7 +179,7 @@ export default function DashboardPage() {
             	</div>
           	</div>
 		) : (
-			<div className="flex-1 overflow-auto px-4 py-4 w-full mt-14 scroll-mt-5">
+			<div className="flex-1 overflow-auto px-4 pb-4 w-full pt-14">
 				{skillSpaces.length === 0 ? (
 					<div className="flex flex-col items-center space-y-4 p-10">
 						<Alert className="flex flex-col items-center justify-center max-w-md mx-auto p-6 rounded-lg shadow-md dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
@@ -219,7 +193,7 @@ export default function DashboardPage() {
 						</Alert>
 					</div>
 				) : (
-					<ScrollArea className="max-w-screen-lg w-full mx-auto pt-6 pb-4 pr-15 pl-15 h-full">
+					<ScrollArea className="max-w-screen-lg w-full mx-auto pb-4 pr-15 pl-15 h-full">
 						<SkillSpace skills={skillSpaces} onUpdated={fetchSkillSpaces} />
 					</ScrollArea>
 				)}
