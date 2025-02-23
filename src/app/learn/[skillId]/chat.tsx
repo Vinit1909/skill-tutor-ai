@@ -10,13 +10,13 @@ import React, {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { FaArrowUp } from "react-icons/fa";
+import { FaArrowUp, FaMicrophone, FaTrash } from "react-icons/fa";
 import { MarkdownRenderer } from "@/components/learn-page/markdownrenderer";
 import { getSkillSpace } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
 import { loadChatMessages, addChatMessage } from "@/lib/skillChat";
 import { updateRoadmapNodeStatus } from "@/lib/skillspace";
-import { CheckCheck, CircleCheckBig, ListStart, Loader, MessageCircleMore, Orbit, SendToBack, Undo2, UndoDot, WrapText } from "lucide-react";
+import { CheckCheck, CircleCheckBig, Globe, ListStart, Loader, MessageCircleMore, Orbit, PlusCircleIcon, PlusIcon, Search, SendToBack, Undo2, UndoDot, WrapText } from "lucide-react";
 import { ICONS, COLORS } from "@/lib/constants";
 import { shuffleArray } from "@/lib/utils";
 import { QuestionCard, QuestionData } from "@/components/learn-page/question-card";
@@ -48,6 +48,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
     const [chatLoading, setChatLoading] = useState(true)
     const [userInput, setUserInput] = useState("");
     const scrollRef = useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [randomCards, setRandomCards] = useState<
         {question: QuestionData; Icon: any; iconColor: string}[]
     >([])
@@ -217,6 +218,19 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         }
     }
 
+    const adjustTextareaHeight = () => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = "auto";
+            const newHeight = Math.min(textarea.scrollHeight, 128);
+            textarea.style.height = `${newHeight}px`;
+        }
+    }
+
+    useEffect(() => {
+        adjustTextareaHeight();
+    }, [userInput])
+
     async function handleSend() {
         if (!userInput.trim()) return;
         const text = userInput;
@@ -279,8 +293,50 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                     )}
                 </div>
             </ScrollArea>
-
-            <div className="border border-r bg-neutral-50 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl flex gap-2 max-w-3xl mx-auto w-full mb-8">
+            
+            <div className="border border-r bg-white dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl p-2 max-w-3xl mx-auto w-full mb-8">
+                <Textarea
+                    ref={textareaRef}
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    placeholder="Type your question..."
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSend();
+                        }
+                    }}
+                    className="bg-white dark:bg-[hsl(0,0%,18%)] resize-none min-h-[2.5rem] max-h-32 w-full rounded-xl mb-2 custom-scrollbar"
+                />
+                <div className="flex justify-between place-items-center">
+                    <div className="flex justify-start gap-2 mb-2 ml-2">
+                        <Button
+                            variant="outline"
+                            className="rounded-full p-2.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[hsl(0,0%,18%)] hover:bg-gray-100 dark:hover:bg-neutral-800"
+                        >
+                            <PlusIcon className="h-4 w-4" />
+                            Add File
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            className="rounded-full p-2.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[hsl(0,0%,18%)] hover:bg-gray-100 dark:hover:bg-neutral-800"
+                            onClick={() => setUserInput("")}
+                        >
+                            <Globe className="h-4 w-4" />
+                            Search
+                        </Button>
+                    </div>
+                    <div className="flex justify-end gap-2 mb-2 mr-2">
+                        <Button 
+                            className="rounded-full p-2.5"
+                            onClick={handleSend}
+                        >
+                            <FaArrowUp className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+            {/* <div className="border border-r bg-neutral-50 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl flex gap-2 max-w-3xl mx-auto w-full mb-8">
                 <Textarea
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
@@ -296,7 +352,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                 <Button onClick={handleSend} className="rounded-full p-2.5 self-end mb-4 mr-4">
                     <FaArrowUp />
                 </Button>
-            </div>
+            </div> */}
         </div>
     );
 });
