@@ -20,6 +20,7 @@ import { clearChatmessages, loadChatMessages } from "@/lib/skillChat";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import Roadmap from "./roadmap";
 import DarkModeToggle from "@/components/dark-mode-toggle";
+import UserProfileBadge from "@/components/user-profile-badge";
 
 
 export default function LearnPage() {
@@ -160,14 +161,14 @@ function LearnLayout({skillId}: {skillId?: string}) {
                 {/* breadcrumb */}
                 <Breadcrumb>
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-black p-2 rounded-xl dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
+                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
                       <BreadcrumbLink href="/dashboard">
 					  	<div className="flex gap-1 place-items-center"><LayoutDashboard className="h-4 w-4"/>Your Skills</div>
 					  </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator className="hidden md:block" />
                     <BreadcrumbItem>
-						<BreadcrumbPage className="hidden md:block hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-2 rounded-xl">
+						<BreadcrumbPage className="hidden md:block hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-2 rounded-full">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
 									<div className="flex gap-1 place-items-center"><BookMarked className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
@@ -188,7 +189,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>
-			  <div className="px-4 ml-auto place-items-center"><DarkModeToggle/></div>
+			  <div className="px-8 ml-auto place-items-center"><UserProfileBadge/></div>
             </header>
 
             {/* Chat interface */}

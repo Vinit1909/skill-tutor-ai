@@ -336,23 +336,6 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                     </div>
                 </div>
             </div>
-            {/* <div className="border border-r bg-neutral-50 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl flex gap-2 max-w-3xl mx-auto w-full mb-8">
-                <Textarea
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    placeholder="Type your question..."
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                        }
-                    }}
-                    className="bg-neutral-50 dark:bg-[hsl(0,0%,18%)] resize-none h-28 w-full rounded-3xl custom-scrollbar"
-                />
-                <Button onClick={handleSend} className="rounded-full p-2.5 self-end mb-4 mr-4">
-                    <FaArrowUp />
-                </Button>
-            </div> */}
         </div>
     );
 });
@@ -434,7 +417,7 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button 
-                                            className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-xl dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
+                                            className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
                                             size="icon" 
                                             variant="ghost" 
                                             onClick={handleMarkComplete}
@@ -451,7 +434,7 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-xl dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" size="icon" variant="ghost">
+                                        <Button className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" size="icon" variant="ghost">
                                             <ListStart/>
                                         </Button>
                                     </TooltipTrigger>
@@ -464,7 +447,7 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-xl dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" size="icon" variant="ghost">
+                                        <Button className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" size="icon" variant="ghost">
                                             <Undo2/>
                                         </Button>
                                     </TooltipTrigger>

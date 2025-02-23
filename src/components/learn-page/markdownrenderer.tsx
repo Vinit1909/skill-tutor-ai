@@ -219,11 +219,11 @@ function CodeBlockWithCopy({
   return (
     <div
       className={`my-4 rounded-md overflow-hidden ${
-        isDarkMode ? "bg-neutral-800 border border-neutral-700" : "bg-neutral-50 border border-neutral-300"
+        isDarkMode ? "bg-neutral-800" : "bg-neutral-50 border border-neutral-200"
       }`}
     >
       <div
-        className={`flex items-center justify-between px-4 py-2 text-xs ${
+        className={`flex items-center justify-between px-4 py-1 text-xs ${
           isDarkMode ? "bg-neutral-700 text-neutral-300" : "bg-neutral-200 text-neutral-600"
         }`}
       >
@@ -231,7 +231,7 @@ function CodeBlockWithCopy({
         <button
           onClick={handleCopy}
           className={`rounded px-2 py-1 transition-colors ${
-            isDarkMode ? "hover:bg-neutral-600 text-neutral-300" : "hover:bg-neutral-300 text-neutral-700"
+            isDarkMode ? "text-neutral-300 hover:text-white" : "text-neutral-700 hover:text-neutral-900"
           }`}
         >
           {copied ? (

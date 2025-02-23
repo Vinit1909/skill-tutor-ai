@@ -272,7 +272,7 @@ const SidebarTrigger = React.forwardRef<
       variant="ghost"
       size="icon"
       className={cn(
-        "min-w-9 w-max px-1 p-2 !font-normal rounded-xl",
+        "min-w-9 w-max px-1 p-2 !font-normal rounded-full",
         "!text-neutral-500 hover:!bg-neutral-100 hover:!text-black  dark:!text-neutral-400 dark:hover:!bg-neutral-700 dark:hover:!text-white",
         className
       )}

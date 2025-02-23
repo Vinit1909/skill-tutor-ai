@@ -119,7 +119,7 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 					</div>
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-						<Button variant="ghost" size="icon" className="h-8 w-8 dark:hover:bg-neutral-800">
+						<Button variant="ghost" size="icon" className="h-8 w-8 dark:hover:bg-neutral-800 rounded-full">
 							<EllipsisVertical className="h-4 w-4" />
 						</Button>
 						</DropdownMenuTrigger>
@@ -146,7 +146,7 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 					<Button 
 						variant="ghost" 
 						size="sm" 
-						className="w-full justify-start border border-r rounded-lg text-muted-foreground dark:border-neutral-700"
+						className="w-full justify-start border border-r rounded-full text-muted-foreground dark:border-neutral-700"
 						onClick={handleGoLearn}
 					>
 						<div className='flex gap-2'>
@@ -156,7 +156,7 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 					<Button 
 						variant="ghost" 
 						size="sm" 
-						className="w-full justify-start border border-r rounded-lg text-muted-foreground dark:border-neutral-700"
+						className="w-full justify-start border border-r rounded-full text-muted-foreground dark:border-neutral-700"
 					>
 						<div className='flex gap-2'>
 							<Dices className='h-4 w-4 mr-2'/> Quiz

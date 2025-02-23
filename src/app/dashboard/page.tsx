@@ -35,6 +35,7 @@ import { Dock, DockIcon } from "@/components/skill-space/dock";
 import DarkModeToggle from "@/components/dark-mode-toggle";
 import { AnimatedShinyText } from "@/components/animated-shiny-text";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import UserProfileBadge from "@/components/user-profile-badge";
 
 export default function DashboardPage() {
   const { user, loading } = useAuthContext();
@@ -116,16 +117,6 @@ export default function DashboardPage() {
 				{/* TODO: Fix tooltip */}
 				<TooltipProvider>
 				<Dock direction="top">
-					{/* <DockIcon className="pointer-events-none">
-						<AnimatedShinyText className="inline-flex items-center justify-center px-4 py-1 transition ease-out hover:text-neutral-600 hover:duration-300 hover:dark:text-neutral-400">
-							<span>
-								<div className="flex gap-2 animate-shiny-text">
-									<Orbit className="h-6 w-6 text-[#6c63ff] dark:text-[#7a83ff]"/>
-									{user.displayName || 'Default Name'}'s Space
-									</div>
-							</span>
-						</AnimatedShinyText>
-					</DockIcon>	 */}
 					<DockIcon className="pointer-events-none">
 						<AnimatedShinyText
 							className="inline-flex items-center gap-2 px-4 py-1
@@ -133,10 +124,9 @@ export default function DashboardPage() {
 									hover:text-neutral-600 hover:dark:text-neutral-400"
 						>
 							<Orbit className="h-6 w-6 text-[#6c63ff] dark:text-[#7a83ff]" />
-							{user.displayName || "Default Name"}'s Space
+							Space
 						</AnimatedShinyText>
 					</DockIcon>
-
 					
 					{/* TODO: Fix the color */}
 					<Separator orientation="vertical" className="h-full" />
@@ -199,26 +189,7 @@ export default function DashboardPage() {
 					</DockIcon>
 
 					<DockIcon>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<DarkModeToggle />
-							</TooltipTrigger>
-							<TooltipContent>
-								<p>Toggle theme</p>
-							</TooltipContent>
-						</Tooltip>
-					</DockIcon>
-
-					<DockIcon>
-						<Button className="size-12 rounded-xl" variant="ghost">
-							<Home className="h-4 w-4" />
-						</Button>
-					</DockIcon>
-					
-					<DockIcon>
-						<Button className="size-12 rounded-xl" variant="ghost">
-							<User className="h-4 w-4" />
-						</Button>
+						<UserProfileBadge/>
 					</DockIcon>
 				</Dock>
 				</TooltipProvider>
