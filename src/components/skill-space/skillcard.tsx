@@ -1,10 +1,5 @@
 import { useState } from 'react';
 import {
-    Avatar,
-    AvatarFallback,
-    AvatarImage,
-  } from "@/components/ui/avatar"
-import {
     HoverCard,
     HoverCardContent,
     HoverCardTrigger,
@@ -169,7 +164,7 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 				<div className="space-y-2">
 					<div className="flex justify-between text-xs text-muted-foreground">
 						<span>Progress</span>
-						<span>{skill.value} / {skill.max} done • {progressPercentage}%</span>
+						<span>{skill.value} / {skill.max} • {progressPercentage}%</span>
 					</div>
 					<Progress 
 						value={progressPercentage} 

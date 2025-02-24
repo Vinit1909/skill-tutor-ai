@@ -15,6 +15,8 @@ export interface ChatMessageData {
     role: string | "user" | "assistant",
     content: string,
     createdAt?: any;
+    nodeId?: string;
+    skillId?: string;
 }
 
 export async function loadChatMessages(uid: string, skillId: string): Promise<ChatMessageData[]> {

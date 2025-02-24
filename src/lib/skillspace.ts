@@ -1,5 +1,15 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc, DocumentData, DocumentReference } from "firebase/firestore"
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore"
 import { db } from "./firebase"
+
+export interface RoadmapNode {
+    id: string
+    title: string
+    status: NodeStatus
+    weight?: number
+    children?: RoadmapNode[]
+}
+
+export type NodeStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
 
 export interface SkillSpaceData {
     id?: string
@@ -16,13 +26,7 @@ export interface SkillSpaceData {
     }
     roadmapJSON?: {
         title: string
-        nodes: Array<{
-            id: string
-            title: string
-            status?: string
-            weight?: number
-            children?: any[]
-        }>
+        nodes: RoadmapNode[]
     }
 }
 
@@ -117,48 +121,73 @@ export async function getSkillSpace(uid: string, docId: string): Promise<SkillSp
     };
 }
 
-// update node's status
-export async function updateRoadmapNodeStatus(
-    uid: string,
-    skillId: string,
-    nodeId: string,
-    newStauts: string
-) {
-    const skillRef = doc(db, "users", uid, "skillspaces", skillId)
-    const snap = await getDoc(skillRef)
-    if (!snap.exists()) {
-        throw new Error("Skill doc does not exist")
+function calculateSkillProgress(nodes: RoadmapNode[]): {value: number, max: number} {
+    let value = 0;
+    let totalMax = 0;
+
+    function updateParentStatus(node: RoadmapNode): NodeStatus {
+        if (!node.children || node.children.length === 0) {
+            return node.status
+        }
+        const childStatuses = node.children.map(child => updateParentStatus(child))
+        if (childStatuses.every(s => s === "COMPLETED")) {
+            return "COMPLETED"
+        }
+        if (childStatuses.some(s => s === "IN_PROGRESS" || s === "COMPLETED")) {
+            return "IN_PROGRESS"
+        }
+        return "NOT_STARTED"
     }
 
-    const skillData = snap.data() as SkillSpaceData
-    if (!skillData.roadmapJSON || !skillData.roadmapJSON.nodes) {
-        throw new Error("No roadmap found in skill doc")
-    }
-
-    const nodes = skillData.roadmapJSON.nodes
-    const nodeIndex = nodes.findIndex((n) => n.id === nodeId)
-    if (nodeIndex === -1) {
-        throw new Error(`Node with id ${nodeId} not found`)
-    }
-
-    nodes[nodeIndex].status = newStauts
-
-    let newValue = 0
-    let maxValue = 0
-
-    for (const n of nodes) {
-        const w = n.weight || 1
-        maxValue += w
-        if (n.status === "COMPLETED") {
-            newValue += w
+    const flattenNodes = (node: RoadmapNode) => {
+        if (!node.children || node.children.length === 0) {
+            const weight = node.weight || 1
+            totalMax += weight
+            if (node.status === "COMPLETED") value += weight
+        } else {
+            node.children.forEach(flattenNodes)
+            node.status = updateParentStatus(node)
         }
     }
 
+    nodes.forEach(flattenNodes)
+    return {value, max: totalMax}    
+}
+
+export async function updateNodeStatus(uid: string, skillId: string, nodeId: string, newStatus: NodeStatus) {
+    const skillRef = doc(db, "users", uid, "skillspaces", skillId)
+    const snap = await getDoc(skillRef)
+    if (!snap.exists()) throw new Error("Skill not found")
+    
+    const skillData = snap.data() as SkillSpaceData
+    if (!skillData.roadmapJSON?.nodes) throw new Error("No roadmap found")
+    
+    console.log("Before update - Nodes:", JSON.stringify(skillData.roadmapJSON.nodes))
+
+    function updateNode(nodes: RoadmapNode[], targetId:string, newStatus: NodeStatus) {
+        return nodes.map(node => {
+            const updatedNode = {...node}
+            if (updatedNode.id === targetId && (!updatedNode.children || updatedNode.children.length === 0)) {
+                updatedNode.status = newStatus
+            }
+            if (updatedNode.children) {
+                updatedNode.children = updateNode(updatedNode.children, targetId, newStatus)
+            }
+            return updatedNode
+        })
+    }
+    
+    const updatedNodes = updateNode(skillData.roadmapJSON.nodes, nodeId, newStatus)
+    const {value, max} = calculateSkillProgress(updatedNodes)
+
+    console.log("After update - Nodes:", JSON.stringify(updatedNodes))
+    console.log("Value/Max:", {value, max})
+
     await updateDoc(skillRef, {
-        "roadmapJSON.nodes": nodes, 
-        value: newValue,
-        max: maxValue,
+        "roadmapJSON.nodes": updatedNodes,
+        value,
+        max,
     })
 
-    return nodes[nodeIndex].id;
+    return {updatedNodes, value, max}
 }

@@ -11,14 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Sidebar, SidebarContent, SidebarHeader, SidebarProvider, SidebarFooter } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { SkillSpaceData } from "@/lib/skillspace";
-
-interface RoadmapNode {
-  id: string
-  title: string
-  status?: string
-  children?: RoadmapNode[]
-}
+import { NodeStatus, RoadmapNode, SkillSpaceData } from "@/lib/skillspace";
 
 interface RoadmapData {
   title: string
@@ -34,7 +27,7 @@ interface RoadmapProps {
 
 export default function Roadmap({ skillId, roadmap, onCreateRoadmap }: RoadmapProps) {
   const { user } = useAuthContext()
-  const [nodes, setNodes] = useState<any[]>([])
+  const [nodes, setNodes] = useState<RoadmapNode[]>([])
 
   useEffect(() => {
     if (!user?.uid || !skillId) return
@@ -93,40 +86,30 @@ function RoadmapStep({ node, index }: { node: RoadmapNode; index: number }) {
 
   return (
     <Collapsible className="group">
-      <CollapsibleTrigger className="flex items-center w-full rounded-md px-2 py-1 text-sm font-medium text-sidebar-foreground hover:bg-neutral-100 hover:text-sidebar-accent-foreground dark:hover:bg-neutral-800 dark:text-neutral-400 dark:hover:text-white transition-colors">
+      <CollapsibleTrigger className="flex items-center w-full rounded-md px-2 py-1 text-sm font-medium text-sidebar-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 dark:text-neutral-400 dark:hover:text-white transition-colors">
         <ChevronRight className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90 mr-2" />
         <span className="ml-2 text-left">
           {`${index + 1}. ${node.title}`}
-          {node.status ? (
-            <span className={`ml-2 ${statusColor} text-xs font-semibold`}>
-              ({node.status})
-            </span>
-          ) : null}
+          <span className={`ml-2 ${statusColor} text-xs font-semibold`}>
+            ({(node.status).replace("_", " ").toLowerCase()})
+          </span>
         </span>
       </CollapsibleTrigger>
-      
       {node.children && node.children.length > 0 && (
         <CollapsibleContent>
           <div className="ml-4 pl-4 border-l border-sidebar-border mt-1">
             {node.children.map((child) => {
               const childStatusColor = getStatusColor(child.status)
               return (
-              <div key={child.id} className="flex items-center w-full rounded-md px-2 py-1 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:hover:bg-neutral-800 dark:text-neutral-400 dark:hover:text-white transition-colors">
-                {/* Status bullet if there's a status */}
-                {child.status ? (
-                  <span className={`mr-2 ${childStatusColor} font-medium`}>•</span>
-                ) : (
-                  <span className="mr-2 text-neutral-500">•</span>
-                )}
-                <span className="ml-1">
-                  {child.title}
-                  {child.status && (
+                <div key={child.id} className="flex items-center w-full rounded-md px-2 py-1 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent dark:hover:bg-neutral-800 dark:text-neutral-400 dark:hover:text-white transition-colors">
+                  <span className={`mr-2 ${childStatusColor}`}>•</span>
+                  <span className="ml-1">
+                    {child.title}
                     <span className={`ml-2 ${childStatusColor} text-xs font-semibold`}>
-                      ({child.status})
+                      ({(child.status).replace("_", " ").toLowerCase()})
                     </span>
-                  )}
-                </span>
-              </div>
+                  </span>
+                </div>
               )
             })}
           </div>
@@ -136,14 +119,10 @@ function RoadmapStep({ node, index }: { node: RoadmapNode; index: number }) {
   )
 }
 
-function getStatusColor(status?: string) {
-  if (!status) return "text-neutral-500"
+function getStatusColor(status: NodeStatus) {
   switch (status) {
-    case "IN_PROGRESS":
-      return "text-yellow-500"
-    case "COMPLETED":
-      return "text-green-500"
-    default:
-      return "text-neutral-500"
+    case "IN_PROGRESS": return "text-yellow-500"
+    case "COMPLETED": return "text-green-500"
+    default: return "text-neutral-500"
   }
 }

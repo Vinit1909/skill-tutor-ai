@@ -12,10 +12,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { FaArrowUp, FaMicrophone, FaTrash } from "react-icons/fa";
 import { MarkdownRenderer } from "@/components/learn-page/markdownrenderer";
-import { getSkillSpace } from "@/lib/skillspace";
+import { getSkillSpace, NodeStatus } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
 import { loadChatMessages, addChatMessage } from "@/lib/skillChat";
-import { updateRoadmapNodeStatus } from "@/lib/skillspace";
+import { updateNodeStatus } from "@/lib/skillspace";
 import { CheckCheck, CircleCheckBig, Globe, ListStart, Loader, MessageCircleMore, Orbit, PlusCircleIcon, PlusIcon, Search, SendToBack, Undo2, UndoDot, WrapText } from "lucide-react";
 import { ICONS, COLORS } from "@/lib/constants";
 import { shuffleArray } from "@/lib/utils";
@@ -60,9 +60,11 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
             if (user?.uid && skillId) {
                 const skillData = await getSkillSpace(user.uid, skillId);
                 if (skillData?.roadmapJSON?.nodes?.length) {
-                    const firstNodeId = skillData.roadmapJSON.nodes[0].id;
-                    console.log("Fetched activeNode: ", firstNodeId)
-                    setActiveNode(firstNodeId);
+                    const firstParent = skillData.roadmapJSON.nodes[0] // e.g., "reactIntro"
+                    const firstIncompleteChild = firstParent.children?.find(c => c.status !== "COMPLETED") || firstParent.children?.[0]
+                    const childId = firstIncompleteChild?.id || firstParent.id
+                    setActiveNode(childId)
+                    console.log("Fetched activeNode:", childId)
                 }
             }
         }
@@ -85,7 +87,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         if (!user?.uid || !skillId) return;
         getSkillSpace(user.uid, skillId)
             .then((doc) => {
-                if (doc) setSkill(doc);
+                if (doc) setSkill({...doc, uid: user.uid});
             })
             .catch((err) => console.error("Error fetching skill doc:", err));
         }, [user, skillId]);
@@ -97,6 +99,8 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                 const loaded = msgs.map((m) => ({
                     role: m.role as "user" | "assistant",
                     content: m.content,
+                    nodeId: m.nodeId,
+                    skillId: m.skillId,
                 }));
                 setMessages(loaded);
             })
@@ -283,7 +287,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                                     key={i} 
                                     role={msg.role} 
                                     content={msg.content} 
-                                    nodeId={msg.nodeId || (activeNode ?? undefined)}
+                                    nodeId={activeNode ?? undefined}
                                     skillId={skillId}
                                     onMessageUpdate={(newMsg) => setMessages(prev => [...prev, newMsg])}
                                 />
@@ -366,6 +370,10 @@ function buildSystemPrompt(skill: any | null) {
         We have a roadmap in JSON:
         ${roadmapJSON}
 
+        Refer to the user’s roadmap progress in Firestore at users/${skill.uid}/skillspaces/${skill.id} for node statuses.
+        Current node: ${skill.activeNode || "unknown"}.
+        Focus on guiding based on progress, suggesting next steps for nodes marked NOT_STARTED or IN_PROGRESS.
+
         Please strictly reference the roadmap's nodes and do not skip around.
         Systematically follow the roadmap and make sure that the user understands each concept in depth.
         Feel free to be humorous and encouraging, but always keep the skill content in mind.
@@ -383,46 +391,44 @@ interface ChatBubbleProps extends ChatMessage {
 function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBubbleProps) {
     const { user } = useAuthContext()
 
-    async function handleMarkComplete() {
-        if (!user?.uid || !skillId || !nodeId) return
+    const handleStatusUpdate = async (newStatus: NodeStatus) => {
+        if (!user?.uid || !skillId || !nodeId) {
+            console.error("Missing required params:", {uid: user?.uid, skillId, nodeId})
+            return 
+        }
         try {
-            const updatedNodeId = await updateRoadmapNodeStatus(user.uid, skillId, nodeId, "COMPLETED") 
-            const newMessage: ChatMessage = {
+            console.log("Updating status:", {uid: user.uid, skillId, nodeId, newStatus})
+            await updateNodeStatus(user.uid, skillId, nodeId, newStatus)
+            onMessageUpdate({
                 role: "assistant",
-                content: "Updated node status to COMPLETED",
-                nodeId: updatedNodeId,
+                content: `Node ${nodeId} marked as ${newStatus.toLowerCase().replace("_", " ")}`,
+                nodeId,
                 skillId,
-            };
-            onMessageUpdate(newMessage)
+            })
         } catch (err) {
-            console.error("Error marking node complete: ", err)
+            console.error("Error updating status:", err)
         }
     }
-
-    console.log("nodeId value: ", nodeId)
     
     if (role === "assistant") {
         return (
-        
             <div className="flex items-start w-full rounded-xl gap-4">
                 <Orbit className="flex-shrink-0 mr-2 mt-2 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
-
-                <div className="flex flex-col mb-4">
+                <div className="flex flex-col mb-4 w-full">
                     <div className="flex-1 text-neutral-900 dark:text-white text-sm break-words overflow-hidden">
                         <MarkdownRenderer content={content} />
                     </div>
                     {nodeId && (
-                        <div className="flex">
+                        <div className="flex gap-4 items-center mt-1 -ml-2">
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button 
-                                            className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
-                                            size="icon" 
+                                            className="flex text-neutral-500 hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
                                             variant="ghost" 
-                                            onClick={handleMarkComplete}
+                                            onClick={() => handleStatusUpdate("COMPLETED")}
                                         >
-                                            <CheckCheck/>
+                                            <CircleCheckBig className="h-4 w-4"/> Complete
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
@@ -434,12 +440,16 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" size="icon" variant="ghost">
-                                            <ListStart/>
+                                        <Button 
+                                            onClick={() => handleStatusUpdate("IN_PROGRESS")}
+                                            className="flex text-neutral-500 hover:bg-muted hover:text-black rounded-full p-2 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
+                                            variant="ghost"
+                                        >
+                                            <Loader className="h-4 w-4"/> In Progress
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
-                                        Need Explanation
+                                        Mark as In Progress
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
@@ -447,8 +457,12 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button className="flex gap-2 text-neutral-500 hover:bg-muted hover:text-black rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" size="icon" variant="ghost">
-                                            <Undo2/>
+                                        <Button 
+                                            onClick={() => handleStatusUpdate("NOT_STARTED")}
+                                            className="flex text-neutral-500 hover:bg-muted hover:text-black rounded-full p-2 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
+                                            variant="ghost"
+                                        >
+                                            <UndoDot className="h-4 w-4"/> Reset
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
