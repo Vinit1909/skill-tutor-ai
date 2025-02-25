@@ -24,10 +24,14 @@ export interface SkillSpaceData {
         goals?: string
         priorKnowledge?: string
     }
+    level?: string
+    goals?: string
+    priorKnowledge?: string
     roadmapJSON?: {
         title: string
         nodes: RoadmapNode[]
     }
+    activeNodeId?: string | null
 }
 
 export async function createSkillSpace(uid: string, name: string, description: string) {
@@ -180,14 +184,25 @@ export async function updateNodeStatus(uid: string, skillId: string, nodeId: str
     const updatedNodes = updateNode(skillData.roadmapJSON.nodes, nodeId, newStatus)
     const {value, max} = calculateSkillProgress(updatedNodes)
 
+    let newActiveNodeId = skillData.activeNodeId
+    if (newStatus === "COMPLETED") {
+        const parentNode = updatedNodes.find(n => n.children?.some((c:any) => c.id === nodeId))
+        if (parentNode && parentNode.children) {
+            const nextChild = parentNode.children.find((c:any) => c.status != "COMPLETED")
+            newActiveNodeId = nextChild?.id || null
+        }
+    }
+
     console.log("After update - Nodes:", JSON.stringify(updatedNodes))
     console.log("Value/Max:", {value, max})
+    console.log("New activeNodeId:", newActiveNodeId)
 
     await updateDoc(skillRef, {
         "roadmapJSON.nodes": updatedNodes,
         value,
         max,
+        activeNodeId: newActiveNodeId
     })
 
-    return {updatedNodes, value, max}
+    return {updatedNodes, value, max, activeNodeId: newActiveNodeId}
 }

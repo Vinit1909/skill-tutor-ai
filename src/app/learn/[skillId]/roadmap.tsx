@@ -33,14 +33,21 @@ export default function Roadmap({ skillId, roadmap, onCreateRoadmap }: RoadmapPr
     if (!user?.uid || !skillId) return
     const skillRef = doc(db, "users", user.uid, "skillspaces", skillId)
     const unsub = onSnapshot(skillRef, (snap) => {
-      if (!snap.exists()) return 
+      if (!snap.exists()) {
+        console.log("No skill data found")
+        setNodes([])
+        return
+      }
       const data = snap.data()
+      console.log("Snapshot updated:", data?.roadmapJSON?.nodes)
       setNodes(data?.roadmapJSON?.nodes || [])
+    }, (error) => {
+      console.error("Snapshot error:", error)
     })
     return () => unsub()
   }, [user, skillId])
 
-  if (!roadmap) {
+  if (!roadmap && nodes.length === 0) {
     return (
       <Sidebar variant="floating" collapsible="offcanvas">
         <SidebarContent className="p-2">
@@ -61,13 +68,13 @@ export default function Roadmap({ skillId, roadmap, onCreateRoadmap }: RoadmapPr
       <Sidebar variant="floating" collapsible="offcanvas">
         <SidebarHeader className="border-b border-sidebar-border px-6 py-4">
           <div className="flex place-items-center justify-between">
-            <h2 className="text-lg font-semibold text-sidebar-foreground">{roadmap.title}</h2>
+            <h2 className="text-lg font-semibold text-sidebar-foreground">{roadmap?.title || "Skill Roadmap"}</h2>
             <Button variant="ghost" className="p-2.5 rounded-lg"><div className="flex gap-2 text-xs"><WandSparkles className="h-2 w-2"/></div></Button>
           </div>
         </SidebarHeader>
         <ScrollArea className="h-[calc(100vh-5rem)]">
           <SidebarContent className="p-2">
-            {roadmap.nodes.map((node, index) => (
+            {nodes.map((node, index) => (
               <RoadmapStep key={node.id} node={node} index={index} />
             ))}
           </SidebarContent>

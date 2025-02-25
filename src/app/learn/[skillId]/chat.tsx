@@ -16,13 +16,17 @@ import { getSkillSpace, NodeStatus } from "@/lib/skillspace";
 import { useAuthContext } from "@/context/authcontext";
 import { loadChatMessages, addChatMessage } from "@/lib/skillChat";
 import { updateNodeStatus } from "@/lib/skillspace";
-import { CheckCheck, CircleCheckBig, Globe, ListStart, Loader, MessageCircleMore, Orbit, PlusCircleIcon, PlusIcon, Search, SendToBack, Undo2, UndoDot, WrapText } from "lucide-react";
+import { CheckCheck, ChevronDown, CircleCheckBig, Globe, ListStart, Loader, MessageCircleMore, Orbit, PlusCircleIcon, PlusIcon, Search, SendToBack, Undo2, UndoDot, WrapText } from "lucide-react";
 import { ICONS, COLORS } from "@/lib/constants";
 import { shuffleArray } from "@/lib/utils";
 import { QuestionCard, QuestionData } from "@/components/learn-page/question-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import LoadingBubble from "@/components/learn-page/ai-loading";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatMessage {
     role: "user" | "assistant";
@@ -38,7 +42,6 @@ export interface ChatRef {
 interface ChatProps {
     skillId?: string;
     questions?: QuestionData[];
-    // isChatEmpty?: boolean;
 }
 
 const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions = []}, ref) {
@@ -56,19 +59,29 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
     const [isAiResponding, setIsAiResponding] = useState(false);
 
     useEffect(() => {
-        async function fetchActiveNode() {
+        async function fetchSkillAndActiveNode() {
             if (user?.uid && skillId) {
                 const skillData = await getSkillSpace(user.uid, skillId);
-                if (skillData?.roadmapJSON?.nodes?.length) {
-                    const firstParent = skillData.roadmapJSON.nodes[0] // e.g., "reactIntro"
-                    const firstIncompleteChild = firstParent.children?.find(c => c.status !== "COMPLETED") || firstParent.children?.[0]
-                    const childId = firstIncompleteChild?.id || firstParent.id
-                    setActiveNode(childId)
-                    console.log("Fetched activeNode:", childId)
+                if (skillData) {
+                    setSkill({...skillData, uid: user.uid});
+                    if (skillData.roadmapJSON?.nodes?.length) {
+                        const storedActiveNode = skillData.activeNodeId
+                        if (storedActiveNode && skillData.roadmapJSON.nodes.some(n => n.id === storedActiveNode || n.children?.some(c => c.id === storedActiveNode))) {
+                            setActiveNode(storedActiveNode)
+                            console.log("Fetched stored activeNode:", storedActiveNode)
+                        } else {
+                            const firstParent = skillData.roadmapJSON.nodes[0]
+                        const firstIncompleteChild = firstParent.children?.find(c => c.status !== "COMPLETED") || firstParent.children?.[0]
+                        const childId = firstIncompleteChild?.id || firstParent.id
+                        setActiveNode(childId)
+                        console.log("Fetched default activeNode:", childId)
+                        await updateDoc(doc(db, "users", user.uid, "skillspaces", skillId), { activeNodeId:childId})
+                        }
+                    }
                 }
             }
         }
-        fetchActiveNode()
+        fetchSkillAndActiveNode()
     }, [user, skillId]);
 
     function isChatEmpty() {
@@ -290,6 +303,9 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
                                     nodeId={activeNode ?? undefined}
                                     skillId={skillId}
                                     onMessageUpdate={(newMsg) => setMessages(prev => [...prev, newMsg])}
+                                    nodes={skill?.roadmapJSON?.nodes || []}
+                                    setActiveNode={setActiveNode}
+                                    sendUserMessage={sendUserMessage}
                                 />
                             ))}
                             {isAiResponding && <LoadingBubble/>}
@@ -386,10 +402,14 @@ function buildSystemPrompt(skill: any | null) {
 
 interface ChatBubbleProps extends ChatMessage {
     onMessageUpdate: (newMsg: ChatMessage) => void;
+    nodes: any[];
+    setActiveNode: (nodeId: string | null) => void;
+    sendUserMessage: (text: string) => void;
 }
 
-function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBubbleProps) {
+function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate, nodes, setActiveNode, sendUserMessage }: ChatBubbleProps) {
     const { user } = useAuthContext()
+    const { toast } = useToast()
 
     const handleStatusUpdate = async (newStatus: NodeStatus) => {
         if (!user?.uid || !skillId || !nodeId) {
@@ -399,15 +419,24 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
         try {
             console.log("Updating status:", {uid: user.uid, skillId, nodeId, newStatus})
             await updateNodeStatus(user.uid, skillId, nodeId, newStatus)
-            onMessageUpdate({
-                role: "assistant",
-                content: `Node ${nodeId} marked as ${newStatus.toLowerCase().replace("_", " ")}`,
-                nodeId,
-                skillId,
+            toast({
+                title: "Progress updated",
+                description: `Node ${nodeId} marked as ${newStatus.toLowerCase().replace("_", " ")}`,
+                duration: 3000,
             })
+
+            const parentNode = nodes.find(n => n.children?.some((c: any) => c.id === nodeId))
+            if (parentNode && newStatus === "COMPLETED") {
+                const nextChild = parentNode.children.find((c:any) => c.status !== "COMPLETED")
+                setActiveNode(nextChild?.id || null)
+            }
         } catch (err) {
             console.error("Error updating status:", err)
         }
+    }
+
+    const handleNodeSelect = (selectedNodeId: string) => {
+        setActiveNode(selectedNodeId)
     }
     
     if (role === "assistant") {
@@ -420,6 +449,30 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                     </div>
                     {nodeId && (
                         <div className="flex gap-4 items-center mt-1 -ml-2">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="flex gap-1 text-neutral-500 dark:text-neutral-400 hover:dark:text-white p-2 rounded-full hover:bg-muted dark:hover:bg-neutral-700">
+                                        <ChevronDown className="h-4 w-4" />
+                                        {nodeId}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)] max-h-60 overflow-y-auto custom-scrollbar">
+                                    {nodes.map((parentNode: any, idx: number) => (
+                                        <React.Fragment key={parentNode.id}>
+                                            {parentNode.children && parentNode.children.map((child: any) => (
+                                                <DropdownMenuItem
+                                                    key = {child.id}
+                                                    onClick = {() => handleNodeSelect(child.id)}
+                                                    className = {child.id === nodeId ? "bg-neutral-100 dark:bg-neutral-700" : ""}
+                                                >
+                                                    {child.title}
+                                                </DropdownMenuItem>
+                                            ))}
+                                            {idx < nodes.length -1 && <DropdownMenuSeparator className="my-1" />}
+                                        </React.Fragment>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -432,7 +485,7 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
-                                        Mark as Complete
+                                        Mark as understood
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
@@ -445,11 +498,11 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                                             className="flex text-neutral-500 hover:bg-muted hover:text-black rounded-full p-2 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
                                             variant="ghost"
                                         >
-                                            <Loader className="h-4 w-4"/> In Progress
+                                            <Loader className="h-4 w-4"/> Start Learning
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
-                                        Mark as In Progress
+                                        Begin this topic
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
@@ -458,15 +511,15 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate }: ChatBub
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button 
-                                            onClick={() => handleStatusUpdate("NOT_STARTED")}
+                                            onClick={() => sendUserMessage("Explain this more")}
                                             className="flex text-neutral-500 hover:bg-muted hover:text-black rounded-full p-2 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700" 
                                             variant="ghost"
                                         >
-                                            <UndoDot className="h-4 w-4"/> Reset
+                                            <UndoDot className="h-4 w-4"/> Need help
                                         </Button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
-                                        Go Back
+                                        Ask for more explanation
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
