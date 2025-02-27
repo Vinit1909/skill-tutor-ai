@@ -10,7 +10,7 @@ export interface SkillSpaceProps {
 
 const SkillSpace = ({skills, onUpdated}: SkillSpaceProps) => {
     return (
-        <div className="grid grid-cols-1 mx-auto md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center items-start w-full mt-4">
+        <div className="grid grid-cols-1 mx-auto md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center items-start w-full px-4 py-8">
             {skills.map((space) => (
             <SkillCard 
                 key={space.id}
