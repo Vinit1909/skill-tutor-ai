@@ -129,3 +129,25 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--foreground) / 0.7);
 }
+
+/* app/globals.css */
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 0.3; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes shimmer-overlay {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}

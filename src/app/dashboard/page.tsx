@@ -200,7 +200,7 @@ export default function DashboardPage() {
                 >
                   {user?.displayName ? `${user.displayName.split(' ')[0]}'s` : `Your`} Space
                 </h1>
-                <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
                   <SkillSpace skills={skillSpaces} onUpdated={fetchSkillSpaces} />
                 </div>
               </div>
