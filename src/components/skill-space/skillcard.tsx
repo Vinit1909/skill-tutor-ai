@@ -69,6 +69,10 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 	function handleGoLearn() {
 		router.push(`/learn/${skill.id}`);
 	}
+
+	function handleGoQuiz() {
+		router.push(`/quiz/${skill.id}`);
+	}
 	
 	return (
 		<Card 
@@ -152,6 +156,7 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 						variant="ghost" 
 						size="sm" 
 						className="w-full justify-start border border-r rounded-full text-muted-foreground dark:border-neutral-700"
+						onClick={handleGoQuiz}
 					>
 						<div className='flex gap-2'>
 							<Dices className='h-4 w-4 mr-2'/> Quiz
