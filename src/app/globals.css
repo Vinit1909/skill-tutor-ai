@@ -110,6 +110,7 @@ body {
 /* Add your custom styles here */
 .custom-scrollbar::-webkit-scrollbar {
   width: 7px;
+  height: 7px; /* reduced thickness for horizontal scrollbar */
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {

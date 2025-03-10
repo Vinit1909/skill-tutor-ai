@@ -7,11 +7,10 @@ import { useEffect, useState } from "react";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { BookMarked, LayoutDashboard, Loader, Loader2, MessageSquareX, WandSparkles } from "lucide-react";
+import { BookMarked, Dices, LayoutDashboard, Loader, MessageSquareX, WandSparkles } from "lucide-react";
 import Chat, { ChatRef } from "./chat";
 import OnboardingWizard from "@/components/learn-page/onboardingWizard";
-import { QuestionCard, QuestionData } from "@/components/learn-page/question-card";
+import { QuestionData } from "@/components/learn-page/question-card";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { getSkillSpace } from "@/lib/skillspace";
@@ -19,9 +18,7 @@ import { useAuthContext } from "@/context/authcontext";
 import { clearChatmessages, loadChatMessages } from "@/lib/skillChat";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import Roadmap from "./roadmap";
-import DarkModeToggle from "@/components/dark-mode-toggle";
 import UserProfileBadge from "@/components/user-profile-badge";
-
 
 export default function LearnPage() {
     const params = useParams();
@@ -127,7 +124,6 @@ function LearnLayout({skillId}: {skillId?: string}) {
 	// If we are still fetching chat messages, show a loading
 	if (fetching) {
 		return (
-			// <div>Loading Chat / Questions...</div>;
 			<div className="text-md text-neutral-500 dark:text-neutral-400 h-screen w-screen flex items-center justify-center">
 				<div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading Chat</div>
 			</div>
@@ -188,6 +184,16 @@ function LearnLayout({skillId}: {skillId?: string}) {
                     </BreadcrumbItem>
                   </BreadcrumbList>
                 </Breadcrumb>
+				<Separator orientation="vertical" className="mr-2 h-4" />
+				<Breadcrumb>
+                  <BreadcrumbList>
+                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
+                      <BreadcrumbLink href={`/quiz/${skillId}`}>
+					  	<div className="flex gap-1 place-items-center"><Dices className="h-4 w-4"/>Quiz</div>
+					  </BreadcrumbLink>
+                    </BreadcrumbItem>
+				  </BreadcrumbList>
+				</Breadcrumb>
               </div>
 			  <div className="px-8 ml-auto place-items-center"><UserProfileBadge/></div>
             </header>

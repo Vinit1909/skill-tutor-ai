@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { WandSparkles } from "lucide-react";
 import { RiAiGenerate } from "react-icons/ri";
+import { ShineBorder } from "../magicui/shine-border";
 
 interface OnboardingWizardProps {
   skillName: string;
@@ -71,7 +72,8 @@ export default function OnboardingWizard({
 
   return (
     <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
-      <Card className="w-[400px] max-h-[90vh] overflow-auto dark:bg-neutral-900">
+      <Card className="w-[400px] max-h-[90vh] relative overflow-auto dark:bg-neutral-900">
+        <ShineBorder shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]} />
         <CardHeader>
           <CardTitle><div className="flex gap-2"><WandSparkles className="h-4 w-4"/>Hi I'm your {skillName} Wizard</div></CardTitle>
           <CardDescription>

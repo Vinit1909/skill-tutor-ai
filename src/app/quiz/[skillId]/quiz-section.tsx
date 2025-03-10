@@ -1,17 +1,19 @@
-// app/quiz/[skillId]/quiz-section.tsx
 "use client"
 
 import React, { useState, useEffect } from "react"
 import { useAuthContext } from "@/context/authcontext"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, XCircle, X, ChevronRight, ChevronDown, SquareStack, Loader } from "lucide-react"
+import { CheckCircle, XCircle, X, ChevronRight, ChevronDown, SquareStack, Loader, BookOpenText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { getCompletedNodes, getQuizQuestions, saveQuizResult, Quiz } from "@/lib/quiz" // Import Quiz interface
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { SelectTrigger } from "@radix-ui/react-select"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Image from "next/image"
+import Link from "next/link"
 
 interface QuizQuestion {
   type: "multiple-choice" | "fill-in-the-blank" | "matching"
@@ -211,7 +213,21 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
   if (!completedNodes.length) {
     return (
       <div className="text-center text-neutral-500 dark:text-neutral-400 py-12">
-        <p className="text-lg">Complete at least one section to unlock quizzes!</p>
+          <Alert className="flex flex-col items-center justify-center max-w-md w-full p-6 rounded-xl border border-neutral-200 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700">
+            <Image className="mx-auto" alt="empty" src="/quiz-empty.svg" width={200} height={200} />
+            <AlertTitle className="text-center mt-4 text-xl font-semibold text-neutral-700 dark:text-neutral-400">
+              No Topics Completed
+            </AlertTitle>
+            <AlertDescription className="text-center mt-2 text-neutral-500">
+              Complete at least one topic to take a quiz
+            </AlertDescription>
+            <Link href={`/learn/${skillId}`} passHref>
+              <Button className="mt-4" variant="link">
+                <BookOpenText className="h-4 w-4 mr-2" />
+                Go to Learn
+              </Button>
+            </Link>
+          </Alert>
       </div>
     )
   }
@@ -248,9 +264,9 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
           {quizHistory.length > 0 && (
             <div className="mt-8 w-full">
             <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-4">Quiz History</h2>
-            <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[hsl(0,0%,18%)]/10 overflow-hidden shadow-sm">
+            <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[hsl(0,0%,18%)]/60 overflow-hidden shadow-sm">
               {/* Header - visible on md screens and up */}
-              <div className="hidden md:grid md:grid-cols-4 gap-4 p-4 bg-neutral-50 dark:bg-[hsl(0,0%,18%)]/10 text-sm font-medium text-neutral-600 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-800">
+              <div className="hidden md:grid md:grid-cols-4 gap-4 p-4 bg-neutral-50 dark:bg-[hsl(0,0%,18%)]/90 text-sm font-medium text-neutral-600 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-800">
                 <div>Quiz #</div>
                 <div>Score</div>
                 <div>Date</div>
@@ -421,7 +437,15 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
                 {questions[currentQuestionIndex].pairs!.map((pair, idx) => (
                   <div key={idx} className="flex items-center justify-between gap-2">
                     <span className="text-sm text-neutral-900 dark:text-neutral-100 w-1/3 truncate">{pair.term}</span>
-                    <Select>
+                    <Select onValueChange={(value) => {
+                      const currentAnswer = userAnswers[currentQuestionIndex] as { [term: string]: string } || {};
+                      currentAnswer[pair.term] = value;
+                      setUserAnswers(prev => {
+                        const newAnswers = prev.length === 0 ? Array(questions.length).fill(null) : [...prev];
+                        newAnswers[currentQuestionIndex] = currentAnswer;
+                        return newAnswers;
+                      });
+                    }}>
                       <SelectTrigger className="w-2/3 p-2 border rounded-xl border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-neutral-100">
                         <div className="flex justify-between items-center gap-2">
                           <SelectValue placeholder="Select" />

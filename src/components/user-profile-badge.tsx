@@ -8,8 +8,9 @@ import { auth } from "@/lib/firebase"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoonStar, Sun, Settings, LogOut } from "lucide-react"
+import { MoonStar, Sun, Settings, LogOut, LayoutDashboard } from "lucide-react"
 import {useTheme} from 'next-themes'
+import Link from "next/link"
 
 export default function UserProfileBadge() {
     const {user} = useAuthContext();
@@ -28,8 +29,12 @@ export default function UserProfileBadge() {
         }
     }
 
-    const handleProfileSettings = () => {
-        alert("Profile Settings coming soon!")
+    const handleProfile = () => {
+        router.push("/user-profile")
+    }
+
+    const handleDashboard = () => {
+        router.push("/dashboard")
     }
 
     return  (
@@ -62,6 +67,20 @@ export default function UserProfileBadge() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="my-1"/>
                 <DropdownMenuItem
+                    onClick={handleDashboard}
+                    className="flex items-center gap-2 rounded-lg p-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                    <LayoutDashboard className="h-4 w-4 text-neutral-500"/>
+                    <Link href="/dashboard">Your Skills</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    onClick={handleProfile}
+                    className="flex items-center gap-2 rounded-lg p-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                    <Settings className="h-4 w-4 text-neutral-500"/>
+                    <Link href="/user-profile">Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
                     onClick={() => setTheme(theme==="dark" ? "light": "dark")}
                     className="flex items-center gap-2 rounded-lg p-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
@@ -71,13 +90,6 @@ export default function UserProfileBadge() {
                         <MoonStar className="h-4 w-4 text-indigo-500"/>
                     )}
                     <span>Change theme</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                    onClick={handleProfileSettings}
-                    className="flex items-center gap-2 rounded-lg p-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                >
-                    <Settings className="h-4 w-4 text-neutral-500"/>
-                    <span>Profile settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="my-1"/>
                 <DropdownMenuItem
