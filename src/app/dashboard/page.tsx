@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthContext } from "@/context/authcontext"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { createSkillSpace, getAllSkillSpaces, type SkillSpaceData } from "@/lib/skillspace"
 import SkillSpace from "@/components/skill-space/skillspace"
 
@@ -26,6 +27,7 @@ import UserProfileBadge from "@/components/user-profile-badge"
 export default function DashboardPage() {
   const { user, loading } = useAuthContext()
   const router = useRouter()
+  const isMobile = useIsMobile()
 
   const [skillSpaces, setSkillSpaces] = useState<SkillSpaceData[]>([])
   const [newName, setNewName] = useState("")
@@ -116,14 +118,18 @@ export default function DashboardPage() {
               <DialogTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex gap-2 text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50 rounded-full"
+                  size={isMobile ? "icon" : "default"}
+                  className={
+                    isMobile
+                      ? "relative flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50"
+                      : "flex gap-2 text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50 rounded-full"
+                  }
                 >
-                  <CircleFadingPlus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Create SkillSpace</span>
-                  <span className="inline sm:hidden">Create</span>
+                  <CircleFadingPlus className="h-10 w-10" />
+                  {isMobile ? "" : "Create SkillSpace"}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800">
+                <DialogContent className={`bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 ${isMobile ? "w-5/6" : "w-full max-w-md"}`}>
                 <DialogHeader>
                   <DialogTitle>Create SkillSpace</DialogTitle>
                   <DialogDescription>Provide a name and description for your new skill space.</DialogDescription>
@@ -165,7 +171,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {loadingSkillSpaces ? (
           <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
             <div className="text-md text-neutral-500 dark:text-neutral-400">
@@ -176,10 +182,10 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="max-w-5xl mx-auto">
+          <div className={`w-full ${isMobile ? "max-w-[95%]" : "max-w-5xl"} mx-auto`}>
             {skillSpaces.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8">
-                <Alert className="flex flex-col items-center justify-center max-w-md w-full p-6 rounded-lg border border-neutral-200 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700">
+                <Alert className={`flex flex-col items-center justify-center max-w-md w-full ${isMobile ? "max-w-[85%]" : "max-w-md"} p-4 sm:p-6 rounded-lg border border-neutral-200 dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700`}>
                   <Image className="mx-auto" alt="empty" src="/empty.svg" width={200} height={200} />
                   <AlertTitle className="text-center mt-4 text-xl font-semibold text-neutral-700 dark:text-neutral-400">
                     No SkillSpace Yet
@@ -194,7 +200,7 @@ export default function DashboardPage() {
                 </Alert>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className={`space-y-${isMobile ? "2" : "4"} sm:space-y-6`}>
                 <h1 
                   className="text-xl font-medium text-neutral-700 dark:text-neutral-300 mb-4"
                 >
