@@ -35,7 +35,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  ResponsiveContainer,
   LineChart,
   Line,
   Tooltip,
@@ -364,7 +363,6 @@ export default function UserProfileDashboard() {
                 </CardHeader>
                 <CardContent className="pt-2 overflow-x-auto custom-scrollbar">
                   <ChartContainer config={chartConfig} className="h-[220px]">
-                    <ResponsiveContainer>
                       <LineChart
                         data={quizResults.map((q, i) => ({
                           name: `Quiz ${i + 1}`,
@@ -410,7 +408,6 @@ export default function UserProfileDashboard() {
                           }}
                         />
                       </LineChart>
-                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>
@@ -469,7 +466,6 @@ export default function UserProfileDashboard() {
                 </CardHeader>
                 <CardContent className="-ml-28 pt-2 flex justify-center overflow-x-auto custom-scrollbar">
                   <ChartContainer config={chartConfig} className="h-[300px] w-full max-w-lg">
-                    <ResponsiveContainer>
                       <BarChart
                         data={skillProgress.map((s) => ({
                           name: s.name,
@@ -497,7 +493,6 @@ export default function UserProfileDashboard() {
                         <ChartTooltip content={<ChartTooltipContent formatter={(value) => `${Number(value).toFixed(1)}%`} />} />
                         <Bar dataKey="value" fill="hsl(188.7 94.5% 42.7%)" radius={[0, 4, 4, 0]} barSize={20} />
                       </BarChart>
-                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>
@@ -572,7 +567,6 @@ export default function UserProfileDashboard() {
                 </CardHeader>
                 <CardContent className="pt-2 overflow-x-auto custom-scrollbar">
                   <ChartContainer config={chartConfig} className="h-[300px]">
-                    <ResponsiveContainer>
                       <BarChart
                         data={skillQuizStats
                           .filter((s) => s.avgScore !== "N/A")
@@ -598,7 +592,6 @@ export default function UserProfileDashboard() {
                         <ChartTooltip content={<ChartTooltipContent formatter={(value) => `${value}/5`} />} />
                         <Bar dataKey="value" fill="hsl(var(--chart-2))" radius={[10, 10, 0, 0]} />
                       </BarChart>
-                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>
@@ -743,7 +736,7 @@ export default function UserProfileDashboard() {
                               <p className="text-xs text-muted-foreground">Avg. score: {skill.avgScore}/5</p>
                             </div>
                           </div>
-                          <Badge variant="outline">
+                          <Badge variant="outline" className="bg-neutral-100 border-neutral-100 dark:bg-neutral-700 border dark:border-neutral-700">
                             {skill.attempts} quiz{skill.attempts !== 1 ? "zes" : ""}
                           </Badge>
                         </div>
