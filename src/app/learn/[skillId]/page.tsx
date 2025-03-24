@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
-import { BookMarked, Dices, LayoutDashboard, Loader, MessageSquareX, WandSparkles } from "lucide-react";
+import { BookMarked, Dices, LayoutDashboard, Loader, Menu, MessageSquareX, WandSparkles } from "lucide-react";
 import Chat, { ChatRef } from "./chat";
 import OnboardingWizard from "@/components/learn-page/onboardingWizard";
 import { QuestionData } from "@/components/learn-page/question-card";
@@ -19,6 +19,7 @@ import { clearChatmessages, loadChatMessages } from "@/lib/skillChat";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import Roadmap from "./roadmap";
 import UserProfileBadge from "@/components/user-profile-badge";
+import { Button } from "@/components/ui/button";
 
 export default function LearnPage() {
     const params = useParams();
@@ -149,22 +150,46 @@ function LearnLayout({skillId}: {skillId?: string}) {
     
           {/* The main content area */}
           <SidebarInset className="flex flex-col h-screen overflow-hidden">
-            <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 bg-white z-10 dark:bg-neutral-800">
+            <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 bg-white z-10 dark:bg-neutral-800 px-2 sm:px-4 ">
               <div className="flex items-center gap-2 px-3">
                 <SidebarTrigger/>
                 <Separator orientation="vertical" className="mr-2 h-4" />
-    
+
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button variant="ghost" className="md:hidden p-2.5 rounded-full hover:bg-muted dark:hover:bg-neutral-700 text-neutral-500 dark:text-neutral-400 hover:dark:text-white hover:text-neutral-900">
+							<Menu className="h-10 w-10" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)]">
+						<DropdownMenuItem asChild>
+						<a href="/dashboard" className="flex gap-2">
+							<LayoutDashboard className="h-4 w-4 text-neutral-500 dark:text-neutral-400" /> Your Skills
+						</a>
+						</DropdownMenuItem>
+						<DropdownMenuItem asChild>
+						<a href={`/quiz/${skillId}`} className="flex gap-2">
+							<Dices className="h-4 w-4 text-neutral-500 dark:text-neutral-400" /> Quiz
+						</a>
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem onClick={handleClearChatClick} className="text-destructive dark:text-red-500 dark:hover:text-white">
+						<MessageSquareX className="h-4 w-4 mr-2" /> Clear Chat
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+
                 {/* breadcrumb */}
-                <Breadcrumb>
+                <Breadcrumb className="hidden md:flex">
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
+                    <BreadcrumbItem className="hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
                       <BreadcrumbLink href="/dashboard">
 					  	<div className="flex gap-1 place-items-center"><LayoutDashboard className="h-4 w-4"/>Your Skills</div>
 					  </BreadcrumbLink>
                     </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
+                    <BreadcrumbSeparator/>
                     <BreadcrumbItem>
-						<BreadcrumbPage className="hidden md:block hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-2 rounded-full">
+						<BreadcrumbPage className="hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-2 rounded-full">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
 									<div className="flex gap-1 place-items-center"><BookMarked className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
@@ -173,10 +198,10 @@ function LearnLayout({skillId}: {skillId?: string}) {
 									<DropdownMenuLabel>Actions</DropdownMenuLabel>
 									<DropdownMenuSeparator />
 									<DropdownMenuItem>
-										<WandSparkles/> Edit Roadmap
+										<WandSparkles className="h-4 w-4 mr-2 rounded-full"/> Edit Roadmap
 									</DropdownMenuItem>
 									<DropdownMenuItem className="text-destructive dark:text-red-500 dark:hover:text-white" onClick={handleClearChatClick} >
-										<MessageSquareX/> Clear Chat
+										<MessageSquareX className="h-4 w-4 mr-2 rounded-full"/> Clear Chat
 									</DropdownMenuItem>
 								</DropdownMenuContent>
 							</DropdownMenu>
@@ -184,10 +209,10 @@ function LearnLayout({skillId}: {skillId?: string}) {
                     </BreadcrumbItem>
                   </BreadcrumbList>
                 </Breadcrumb>
-				<Separator orientation="vertical" className="mr-2 h-4" />
-				<Breadcrumb>
+				<Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
+				<Breadcrumb className="hidden md:flex">
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
+                    <BreadcrumbItem className="hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
                       <BreadcrumbLink href={`/quiz/${skillId}`}>
 					  	<div className="flex gap-1 place-items-center"><Dices className="h-4 w-4"/>Quiz</div>
 					  </BreadcrumbLink>
@@ -195,7 +220,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
 				  </BreadcrumbList>
 				</Breadcrumb>
               </div>
-			  <div className="px-8 ml-auto place-items-center"><UserProfileBadge/></div>
+			  <div className="px-2 sm:px-4 ml-auto place-items-center"><UserProfileBadge/></div>
             </header>
 
             {/* Chat interface */}

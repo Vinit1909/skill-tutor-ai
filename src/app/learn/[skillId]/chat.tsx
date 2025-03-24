@@ -787,10 +787,10 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <ScrollArea className="flex-1 px-6 pl-3 space-y-2 scroll-smooth" ref={scrollRef} style={{ height: "100%" }}>
+      <ScrollArea className="flex-1 px-4 sm:px-6 pl-3 space-y-2 scroll-smooth w-full" ref={scrollRef} style={{ height: "100%" }}>
         <div className="flex h-full items-center justify-center">
           {isChatEmpty() ? (
-            <div className="grid grid-cols-2 gap-4 place-items-center my-40">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 place-items-center my-10 sm:my-40 w-full max-w-[95%] sm:max-w-3xl mx-auto lg:px-20 overflow-hidden">
               {randomCards.map(({ question, Icon, iconColor }, idx) => (
                 <QuestionCard
                   key={question.id || idx}
@@ -802,7 +802,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
               ))}
             </div>
           ) : (
-            <div className="flex flex-col gap-2 w-full max-w-3xl mx-auto py-4">
+            <div className="flex flex-col gap-2 w-full max-w-[95%] sm:max-w-3xl mx-auto py-4">
               {messages.map((msg, i) => (
                 <ChatBubble
                   key={i}
@@ -823,7 +823,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
         </div>
       </ScrollArea>
 
-      <div className="border border-r bg-white dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl p-2 max-w-3xl mx-auto w-full mb-8">
+      <div className="border border-r bg-white dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl p-2 sm:p-2 max-w-[95%] sm:max-w-3xl mx-auto w-full mb-4 sm:mb-8">
         <Textarea
           ref={textareaRef}
           value={userInput}
@@ -835,7 +835,7 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
               handleSend()
             }
           }}
-          className="bg-white dark:bg-[hsl(0,0%,18%)] resize-none min-h-[2.5rem] max-h-32 w-full rounded-xl mb-2 custom-scrollbar"
+          className="bg-white dark:bg-[hsl(0,0%,18%)] resize-none min-h-[2.5rem] max-h-32 w-full rounded-xl mb-2 px-2 sm:px-4 custom-scrollbar"
         />
         <div className="flex justify-between place-items-center">
           <div className="flex justify-start gap-2 mb-2 ml-2">
@@ -947,11 +947,11 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate, nodes, is
       <div className="flex items-start w-full rounded-xl gap-4">
         <Orbit className="flex-shrink-0 mr-2 mt-2 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
         <div className="flex flex-col mb-4 w-full">
-          <div className="flex-1 text-neutral-900 dark:text-white text-sm break-words overflow-hidden">
+          <div className="flex-1 text-neutral-900 dark:text-white text-sm break-words overflow-x-auto">
             <MarkdownRenderer content={content} />
           </div>
           {nodeId && isLatestAiResponse && (
-            <div className="flex gap-4 items-center mt-1 -ml-2">
+            <div className="flex flex-wrap gap-2 sm:gap-4 items-center mt-1 -ml-2 px-2 sm:px-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex gap-1 text-neutral-500 dark:text-neutral-400 hover:dark:text-white p-2 rounded-full hover:bg-muted dark:hover:bg-neutral-700">
@@ -980,7 +980,7 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate, nodes, is
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      className="flex text-neutral-500 hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700"
+                      className="flex text-neutral-500 hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 text-xs sm:text-sm"
                       variant="ghost"
                       onClick={() => handleStatusUpdate("COMPLETED")}
                     >
@@ -996,7 +996,7 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate, nodes, is
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      className="flex text-neutral-500 hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700"
+                      className="flex text-neutral-500 hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 text-xs sm:text-sm"
                       variant="ghost"
                       onClick={() => handleStatusUpdate("IN_PROGRESS")}
                     >
@@ -1012,7 +1012,7 @@ function ChatBubble({ role, content, nodeId, skillId, onMessageUpdate, nodes, is
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      className="flex text-neutral-500 hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700"
+                      className="flex text-neutral-500 hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 text-xs sm:text-sm"
                       variant="ghost"
                       onClick={() => sendUserMessage("Explain this more")}
                     >
