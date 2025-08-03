@@ -9,8 +9,9 @@ export async function POST(req: NextRequest) {
         }
         const content = await callGroqLLM(messages);
         return NextResponse.json({content});
-    } catch (err: any) {
-        console.error("LLM error:", err );
-        return NextResponse.json({error: err.message}, {status: 500});
+    } catch (err: unknown) {
+        console.error("LLM API error:", err)
+        const errorMessage = err instanceof Error ? err.message : "Failed to process request"
+        return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 }

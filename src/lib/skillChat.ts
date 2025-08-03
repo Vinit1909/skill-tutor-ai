@@ -6,35 +6,36 @@ import {
     getDocs,
     query,
     orderBy,
-    serverTimestamp
+    serverTimestamp,
+    Timestamp
 } from "firebase/firestore"
 import {db} from "./firebase"
 
 export interface ChatMessageData {
-    id?: string,
-    role: string | "user" | "assistant",
-    content: string,
-    createdAt?: any;
-    nodeId?: string;
-    skillId?: string;
+    id?: string
+    role: string | "user" | "assistant"
+    content: string
+    createdAt?: Timestamp
+    nodeId?: string
+    skillId?: string
 }
 
 export async function loadChatMessages(uid: string, skillId: string): Promise<ChatMessageData[]> {
-    const ref = collection(db, "users", uid, "skillspaces", skillId, "chats");
-    const q = query(ref, orderBy("createdAt", "asc"));
-    const snap = await getDocs(q);
+    const ref = collection(db, "users", uid, "skillspaces", skillId, "chats")
+    const q = query(ref, orderBy("createdAt", "asc"))
+    const snap = await getDocs(q)
 
-    const messages: ChatMessageData[] = [];
+    const messages: ChatMessageData[] = []
     snap.forEach((docSnap) => {
-        const data = docSnap.data();
+        const data = docSnap.data()
         messages.push({
             id: docSnap.id, 
             role: data.role,
             content: data.content,
             createdAt: data.createdAt,
-        });
-    });
-    return messages;
+        })
+    })
+    return messages
 }
 
 export async function addChatMessage(
@@ -43,22 +44,22 @@ export async function addChatMessage(
     role: "user" | "assistant",
     content: string,
 ) {
-    const ref = collection(db, "users", uid, "skillspaces", skillId, "chats");
+    const ref = collection(db, "users", uid, "skillspaces", skillId, "chats")
     await addDoc(ref, {
         role, 
         content, 
         createdAt: serverTimestamp(),
-    });
+    })
 }
 
 export async function clearChatmessages(uid: string, skillId: string) {
-    const ref = collection(db, "users", uid, "skillspaces", skillId, "chats");
-    const snap = await getDocs(ref);
-    const batchDeletes: Promise<void>[] = [];
+    const ref = collection(db, "users", uid, "skillspaces", skillId, "chats")
+    const snap = await getDocs(ref)
+    const batchDeletes: Promise<void>[] = []
 
     snap.forEach((docSnap) => {
-        const msgRef = doc(db, "users", uid, "skillspaces", skillId, "chats", docSnap.id);
-        batchDeletes.push(deleteDoc(msgRef));
-    });
-    await Promise.all(batchDeletes);
+        const msgRef = doc(db, "users", uid, "skillspaces", skillId, "chats", docSnap.id)
+        batchDeletes.push(deleteDoc(msgRef))
+    })
+    await Promise.all(batchDeletes)
 }

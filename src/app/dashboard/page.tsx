@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthContext } from "@/context/authcontext"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -42,21 +42,7 @@ export default function DashboardPage() {
     }
   }, [loading, user, router])
 
-  // Fetch skillSpaces if a user
-  useEffect(() => {
-    if (!loading && user?.uid) {
-      fetchSkillSpaces()
-    }
-  }, [loading, user])
-
-  // Log user object for debugging
-  useEffect(() => {
-    if (user) {
-      console.log("User Object:", user)
-    }
-  }, [user])
-
-  async function fetchSkillSpaces() {
+  const fetchSkillSpaces = useCallback(async () => {
     if (!user?.uid) return
     try {
       setLoadingSkillSpaces(true)
@@ -67,7 +53,21 @@ export default function DashboardPage() {
     } finally {
       setLoadingSkillSpaces(false)
     }
-  }
+  }, [user?.uid])
+
+  // Fetch skillSpaces if a user
+  useEffect(() => {
+    if (!loading && user?.uid) {
+      fetchSkillSpaces()
+    }
+  }, [loading, user?.uid, fetchSkillSpaces])
+
+  // Log user object for debugging
+  useEffect(() => {
+    if (user) {
+      console.log("User Object:", user)
+    }
+  }, [user])
 
   async function handleCreateSkillSpace() {
     if (!user?.uid) return

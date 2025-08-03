@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore"
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc, Timestamp } from "firebase/firestore"
 import { db } from "./firebase"
 
 export interface RoadmapNode {
@@ -17,7 +17,7 @@ export interface SkillSpaceData {
     description?: string
     value: number
     max: number
-    createdAt?: any
+    createdAt?: Timestamp
     // new fields for roadmap
     roadmapContext?: {
         level?: string
@@ -87,32 +87,32 @@ export async function deleteSkillSpaceDeep(
     uid: string,
     skillId: string
 ) : Promise<void> {
-    const subCollections = ["chats", "questions"];
-    const skillRef = doc(db, "users", uid, "skillspaces", skillId);
+    const subCollections = ["chats", "questions"]
+    const skillRef = doc(db, "users", uid, "skillspaces", skillId)
 
     for (const subCol of subCollections) {
-        const subColRef = collection(skillRef, subCol);
-        const snap = await getDocs(subColRef);
+        const subColRef = collection(skillRef, subCol)
+        const snap = await getDocs(subColRef)
 
-        const deletePromises: Promise<void>[] = [];
+        const deletePromises: Promise<void>[] = []
         snap.forEach((docSnap) => {
-            deletePromises.push(deleteDoc(docSnap.ref));
-        });
+            deletePromises.push(deleteDoc(docSnap.ref))
+        })
 
-        await Promise.all(deletePromises);
+        await Promise.all(deletePromises)
     }
-    await deleteDoc(skillRef);
+    await deleteDoc(skillRef)
 }
 
 // GET a single skill doc
 export async function getSkillSpace(uid: string, docId: string): Promise<SkillSpaceData | null> {
-    const docRef = doc(db, "users", uid, "skillspaces", docId);
-    const snap = await getDoc(docRef);
+    const docRef = doc(db, "users", uid, "skillspaces", docId)
+    const snap = await getDoc(docRef)
 
     if (!snap.exists()) {
-        return null;
+        return null
     }
-    const data = snap.data();
+    const data = snap.data()
     return {
         id: snap.id,
         name: data.name, 
@@ -122,12 +122,13 @@ export async function getSkillSpace(uid: string, docId: string): Promise<SkillSp
         createdAt: data.createdAt,
         roadmapContext: data.roadmapContext,
         roadmapJSON: data.roadmapJSON, 
-    };
+        activeNodeId: data.activeNodeId,
+    }
 }
 
 function calculateSkillProgress(nodes: RoadmapNode[]): {value: number, max: number} {
-    let value = 0;
-    let totalMax = 0;
+    let value = 0
+    let totalMax = 0
 
     function updateParentStatus(node: RoadmapNode): NodeStatus {
         if (!node.children || node.children.length === 0) {
@@ -186,9 +187,9 @@ export async function updateNodeStatus(uid: string, skillId: string, nodeId: str
 
     let newActiveNodeId = skillData.activeNodeId
     if (newStatus === "COMPLETED") {
-        const parentNode = updatedNodes.find(n => n.children?.some((c:any) => c.id === nodeId))
+        const parentNode = updatedNodes.find(n => n.children?.some((c: RoadmapNode) => c.id === nodeId))
         if (parentNode && parentNode.children) {
-            const nextChild = parentNode.children.find((c:any) => c.status != "COMPLETED")
+            const nextChild = parentNode.children.find((c: RoadmapNode) => c.status !== "COMPLETED")
             newActiveNodeId = nextChild?.id || null
         }
     }

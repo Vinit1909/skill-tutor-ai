@@ -1,8 +1,27 @@
-// app/api/quiz/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { callGroqLLM } from "@/lib/llm"
 import { getSkillSpace } from "@/lib/skillspace"
 import { loadChatMessages } from "@/lib/skillChat"
+
+interface RoadmapNode {
+  id: string
+  title: string
+  children?: Array<{ id: string; title: string }>
+}
+
+interface ChatMessage {
+  role: string
+  content: string
+  nodeId?: string
+}
+
+interface QuizQuestion {
+  type: "multiple-choice" | "fill-in-the-blank" | "matching"
+  question: string
+  options?: string[]
+  pairs?: { term: string; definition: string }[]
+  correctAnswer: string | { term: string; definition: string }[]
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const nodeTitles = nodeIds
-      .map(id => skill.roadmapJSON?.nodes.flatMap((n: any) => n.children || []).find((c: any) => c.id === id)?.title)
+      .map(id => skill.roadmapJSON?.nodes.flatMap((n: RoadmapNode) => n.children || []).find((c: { id: string; title: string }) => c.id === id)?.title)
       .filter(Boolean)
       .join(", ")
     if (!nodeTitles) {
@@ -28,8 +47,8 @@ export async function POST(req: NextRequest) {
 
     const chatHistory = await loadChatMessages(uid, skillId)
       .then(messages => messages
-        .filter((msg: any) => nodeIds.includes(msg.nodeId))
-        .map((msg: any) => `${msg.role}: ${msg.content}`)
+        .filter((msg: ChatMessage) => nodeIds.includes(msg.nodeId))
+        .map((msg: ChatMessage) => `${msg.role}: ${msg.content}`)
         .join("\n") || "No chat history available.")
 
     const prompt = `
@@ -60,18 +79,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to generate exercises" }, { status: 500 })
     }
 
-    let parsedExercises: any[]
+    let parsedExercises: QuizQuestion[]
     try {
       parsedExercises = JSON.parse(exercises)
       if (!Array.isArray(parsedExercises) || parsedExercises.length < 20 || parsedExercises.length > 30) {
         throw new Error(`Expected 20-30 exercises, got ${parsedExercises.length}`)
       }
 
-      parsedExercises.forEach((q: any) => {
+      parsedExercises.forEach((q: QuizQuestion) => {
         if (!["multiple-choice", "fill-in-the-blank", "matching"].includes(q.type)) {
           throw new Error(`Invalid question type: ${q.type}`)
         }
-        if (q.type === "multiple-choice" && (!q.options || q.options.length !== 4 || !["a", "b", "c", "d"].includes(q.correctAnswer))) {
+        if (q.type === "multiple-choice" && (!q.options || q.options.length !== 4 || !["a", "b", "c", "d"].includes(q.correctAnswer as string))) {
           throw new Error("Invalid multiple-choice format")
         }
         if (q.type === "fill-in-the-blank" && typeof q.correctAnswer !== "string") {
@@ -84,17 +103,18 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error("Invalid AI response:", err, "Raw response:", exercises)
       parsedExercises = [
-        { type: "multiple-choice", question: `What is a key feature of ${skill.name}?`, options: ["a. Speed", "b. UI", "c. Data", "d. Loops"], correctAnswer: "b" },
-        { type: "fill-in-the-blank", question: `${skill.name} uses ___ for syntax.`, correctAnswer: "JSX" },
-        { type: "matching", question: "Match terms", pairs: [{ term: "JSX", definition: "Syntax extension" }, { term: "Component", definition: "Reusable UI" }], correctAnswer: [{ term: "JSX", definition: "Syntax extension" }, { term: "Component", definition: "Reusable UI" }] },
+        { type: "multiple-choice" as const, question: `What is a key feature of ${skill.name}?`, options: ["a. Speed", "b. UI", "c. Data", "d. Loops"], correctAnswer: "b" },
+        { type: "fill-in-the-blank" as const, question: `${skill.name} uses ___ for syntax.`, correctAnswer: "JSX" },
+        { type: "matching" as const, question: "Match terms", pairs: [{ term: "JSX", definition: "Syntax extension" }, { term: "Component", definition: "Reusable UI" }], correctAnswer: [{ term: "JSX", definition: "Syntax extension" }, { term: "Component", definition: "Reusable UI" }] },
         // Add more contextual fallbacks up to 20
-      ].concat(Array(17).fill({ type: "fill-in-the-blank", question: `${skill.name} is a ___ tool.`, correctAnswer: nodeTitles.split(", ")[0] || "great" }))
+      ].concat(Array(17).fill({ type: "fill-in-the-blank" as const, question: `${skill.name} is a ___ tool.`, correctAnswer: nodeTitles.split(", ")[0] || "great" }))
       console.warn("Using contextual fallback exercises due to invalid AI response")
     }
 
     return NextResponse.json(parsedExercises)
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Quiz API error:", err)
-    return NextResponse.json({ error: err.message || "Failed to generate exercises" }, { status: 500 })
+    const errorMessage = err instanceof Error ? err.message : "Failed to generate exercises"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

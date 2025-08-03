@@ -1,19 +1,31 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { useAuthContext } from "@/context/authcontext"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, XCircle, X, ChevronRight, ChevronDown, SquareStack, Loader, BookOpenText } from "lucide-react"
+import { CheckCircle, XCircle, X, ChevronRight, ChevronDown, Loader, BookOpenText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getCompletedNodes, getQuizQuestions, saveQuizResult, Quiz } from "@/lib/quiz" // Import Quiz interface
+import { getCompletedNodes, getQuizQuestions, saveQuizResult, Quiz } from "@/lib/quiz"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { SelectTrigger } from "@radix-ui/react-select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { SkillSpaceData } from "@/lib/skillspace"
 import Image from "next/image"
 import Link from "next/link"
+
+interface RoadmapNode {
+  id: string
+  title: string
+  children?: RoadmapChild[]
+}
+
+interface RoadmapChild {
+  id: string
+  title: string
+}
 
 interface QuizQuestion {
   type: "multiple-choice" | "fill-in-the-blank" | "matching"
@@ -23,9 +35,19 @@ interface QuizQuestion {
   correctAnswer: string | { term: string; definition: string }[]
 }
 
+interface QuizResult {
+  id: string
+  number: number
+  score: number
+  timestamp: { seconds: number }
+  quizType: string
+  userAnswers: (string | { [term: string]: string })[]
+  questions: QuizQuestion[]
+}
+
 interface QuizSectionProps {
   skillId?: string
-  skill: any
+  skill: SkillSpaceData
 }
 
 export default function QuizSection({ skillId, skill }: QuizSectionProps) {
@@ -41,10 +63,41 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
   const [showResults, setShowResults] = useState(false)
   const [showTypeSelection, setShowTypeSelection] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [quizHistory, setQuizHistory] = useState<any[]>([])
+  const [quizHistory, setQuizHistory] = useState<QuizResult[]>([])
   const [currentInput, setCurrentInput] = useState<string>("")
-  const [selectedResult, setSelectedResult] = useState<any | null>(null)
+  const [selectedResult, setSelectedResult] = useState<QuizResult | null>(null)
   const { toast } = useToast()
+
+  const fetchNodeTitles = useCallback((nodeIds: string[]) => {
+    if (!skill?.roadmapJSON?.nodes) return
+    const titles = nodeIds.reduce((acc, id) => {
+      const node = skill.roadmapJSON?.nodes?.flatMap((n: RoadmapNode) => n.children || []).find((c: RoadmapChild) => c.id === id)
+      if (node) acc[id] = node.title
+      return acc
+    }, {} as { [key: string]: string })
+    setNodeTitles(titles)
+  }, [skill?.roadmapJSON?.nodes])
+
+  const fetchQuizHistory = useCallback(async () => {
+    if (!user?.uid || !skillId) return
+    try {
+      const quizResultsCollection = collection(db, "users", user.uid, "skillspaces", skillId, "quizResults")
+      const quizResultsSnapshot = await getDocs(quizResultsCollection)
+      const results: QuizResult[] = quizResultsSnapshot.docs.map((doc, index) => ({
+        id: doc.id,
+        number: index + 1,
+        score: doc.data().score || 0,
+        timestamp: doc.data().timestamp || { seconds: 0 },
+        quizType: doc.data().quizType || "unknown",
+        userAnswers: doc.data().userAnswers || [],
+        questions: doc.data().questions || [],
+      }))
+      setQuizHistory(results)
+    } catch (err) {
+      console.error("Error fetching quiz history:", err)
+      toast({ title: "Error", description: "Failed to load quiz history", variant: "destructive" })
+    }
+  }, [user?.uid, skillId, toast])
 
   useEffect(() => {
     if (user?.uid && skillId) {
@@ -59,34 +112,7 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
       .finally(() => setIsLoading(false))
       fetchQuizHistory()
     }
-  }, [user, skillId])
-
-  const fetchNodeTitles = (nodeIds: string[]) => {
-    if (!skill?.roadmapJSON?.nodes) return
-    const titles = nodeIds.reduce((acc, id) => {
-      const node = skill.roadmapJSON.nodes.flatMap((n: any) => n.children || []).find((c: any) => c.id === id)
-      if (node) acc[id] = node.title
-      return acc
-    }, {} as { [key: string]: string })
-    setNodeTitles(titles)
-  }
-
-  const fetchQuizHistory = async () => {
-    if (!user?.uid || !skillId) return
-    try {
-      const quizResultsCollection = collection(db, "users", user.uid, "skillspaces", skillId, "quizResults")
-      const quizResultsSnapshot = await getDocs(quizResultsCollection)
-      const results = quizResultsSnapshot.docs.map((doc, index) => ({
-        id: doc.id,
-        number: index + 1,
-        ...doc.data(),
-      }))
-      setQuizHistory(results)
-    } catch (err) {
-      console.error("Error fetching quiz history:", err)
-      toast({ title: "Error", description: "Failed to load quiz history", variant: "destructive" })
-    }
-  }
+  }, [user?.uid, skillId, fetchNodeTitles, fetchQuizHistory, toast])
 
   const toggleTopic = (nodeId: string) => {
     setSelectedTopics(prev =>
@@ -112,21 +138,22 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
       const quizSnapshot = await getDocs(quizCollection)
       const latestQuiz = quizSnapshot.docs
         .map(doc => {
-          const data = doc.data() as Omit<Quiz, 'id'>;
-          return { id: doc.id, ...data };
+          const data = doc.data() as Omit<Quiz, 'id'>
+          return { id: doc.id, ...data }
         })
         .sort((a, b) => {
-          const aSeconds = a.createdAt?.seconds || 0 // Fallback to 0 if undefined
+          const aSeconds = a.createdAt?.seconds || 0
           const bSeconds = b.createdAt?.seconds || 0
-          return bSeconds - aSeconds // Latest first
+          return bSeconds - aSeconds
         })[0]
       setQuizId(latestQuiz?.id || null)
       setCurrentQuestionIndex(0)
       setUserAnswers([])
       setShowResults(false)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to start quiz:", err)
-      toast({ title: "Error", description: err.message || "Failed to start quiz", variant: "destructive" })
+      const errorMessage = err instanceof Error ? err.message : "Failed to start quiz"
+      toast({ title: "Error", description: errorMessage, variant: "destructive" })
     } finally {
       setIsLoading(false)
     }
@@ -265,7 +292,6 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
             <div className="mt-8 w-full">
             <h2 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-4">Quiz History</h2>
             <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[hsl(0,0%,18%)]/60 overflow-hidden shadow-sm">
-              {/* Header - visible on md screens and up */}
               <div className="hidden md:grid md:grid-cols-4 gap-4 p-4 bg-neutral-50 dark:bg-[hsl(0,0%,18%)]/90 text-sm font-medium text-neutral-600 dark:text-neutral-400 border-b border-neutral-200 dark:border-neutral-800">
                 <div>Quiz #</div>
                 <div>Score</div>
@@ -273,7 +299,6 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
                 <div>Type</div>
               </div>
 
-              {/* Scrollable content - fixed height for 5 rows */}
               <div
                 className={`${
                   needsScrolling
@@ -281,7 +306,7 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
                     : ""
                 }`}
                 style={{
-                  maxHeight: needsScrolling ? "285px" : "auto", // Height for 5 rows (5 * 57px)
+                  maxHeight: needsScrolling ? "285px" : "auto",
                 }}
               >
                 {quizHistory.map((result) => (
@@ -290,7 +315,6 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
                     onClick={() => setSelectedResult(result)}
                     className="group flex flex-col md:grid md:grid-cols-4 gap-2 md:gap-4 p-4 border-b last:border-b-0 border-neutral-200 dark:border-neutral-800 text-sm text-neutral-900 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer"
                   >
-                    {/* Mobile view - stacked layout */}
                     <div className="flex justify-between items-center md:hidden">
                       <div className="font-medium">Quiz #{result.number}</div>
                       <div className="flex items-center gap-2">
@@ -300,14 +324,13 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
                     </div>
                     <div className="flex justify-between text-xs text-neutral-500 dark:text-neutral-400 md:hidden">
                       <div>{new Date(result.timestamp.seconds * 1000).toLocaleDateString()}</div>
-                      <div className="uppercase">{new String(result.quizType).replace(/-/g, " ")}</div>
+                      <div className="uppercase">{String(result.quizType).replace(/-/g, " ")}</div>
                     </div>
 
-                    {/* Desktop view - grid layout */}
                     <div className="hidden md:block">{result.number}</div>
                     <div className="hidden md:block font-medium">{result.score}/5</div>
                     <div className="hidden md:block">{new Date(result.timestamp.seconds * 1000).toLocaleDateString()}</div>
-                    <div className="hidden md:block uppercase">{new String(result.quizType).replace(/-/g, " ")}</div>
+                    <div className="hidden md:block uppercase">{String(result.quizType).replace(/-/g, " ")}</div>
                   </div>
                 ))}
               </div>
@@ -485,7 +508,6 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
         </div>
       )}
 
-      {/* Modal for detailed quiz results */}
       {selectedResult && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-[hsl(0,0%,18%)] rounded-lg border border-neutral-200 dark:border-neutral-700 custom-scrollbar w-full max-w-2xl max-h-[80vh] overflow-y-auto p-6 relative">
@@ -507,40 +529,40 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
                   <div className="mt-2">
                     {q.type === "multiple-choice" && (
                       <p className={`${(selectedResult.userAnswers[i] as string) === q.correctAnswer ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"} text-sm flex items-center gap-2`}>
-                        <span>Your answer: {q.options![["a", "b", "c", "d"].indexOf(selectedResult.userAnswers[i] as string)]}</span>
-                        {(selectedResult.userAnswers[i] as string) === q.correctAnswer ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                      </p>
-                    )}
-                    {q.type === "fill-in-the-blank" && (
-                      <p className={`${(selectedResult.userAnswers[i] as string)?.toLowerCase() === (q.correctAnswer as string)?.toLowerCase() ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"} text-sm flex items-center gap-2`}>
-                        <span>Your answer: {selectedResult.userAnswers[i] as string}</span>
-                        {(selectedResult.userAnswers[i] as string)?.toLowerCase() === (q.correctAnswer as string)?.toLowerCase() ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                      </p>
-                    )}
-                    {q.type === "matching" && (
-                      <p className={`${isMatchingCorrect(selectedResult.userAnswers[i], q.correctAnswer) ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"} text-sm flex items-center gap-2`}>
-                        <span>Your matches: {Object.entries(selectedResult.userAnswers[i] as { [term: string]: string }).map(([term, def]) => `${term}: ${def}`).join(", ")}</span>
-                        {isMatchingCorrect(selectedResult.userAnswers[i], q.correctAnswer) ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                      </p>
-                    )}
-                    {(q.type === "multiple-choice" && (selectedResult.userAnswers[i] as string) !== q.correctAnswer) ||
-                     (q.type === "fill-in-the-blank" && (selectedResult.userAnswers[i] as string)?.toLowerCase() !== (q.correctAnswer as string)?.toLowerCase()) ||
-                     (q.type === "matching" && !isMatchingCorrect(selectedResult.userAnswers[i], q.correctAnswer)) ? (
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                        Correct: {q.type === "multiple-choice" 
-                          ? q.options![["a", "b", "c", "d"].indexOf(q.correctAnswer as string)] 
-                          : q.type === "matching" 
-                            ? (q.correctAnswer as { term: string; definition: string }[]).map(cp => `${cp.term}: ${cp.definition}`).join(", ")
-                            : String(q.correctAnswer)}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+                       <span>Your answer: {q.options![["a", "b", "c", "d"].indexOf(selectedResult.userAnswers[i] as string)]}</span>
+                       {(selectedResult.userAnswers[i] as string) === q.correctAnswer ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                     </p>
+                   )}
+                   {q.type === "fill-in-the-blank" && (
+                     <p className={`${(selectedResult.userAnswers[i] as string)?.toLowerCase() === (q.correctAnswer as string)?.toLowerCase() ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"} text-sm flex items-center gap-2`}>
+                       <span>Your answer: {selectedResult.userAnswers[i] as string}</span>
+                       {(selectedResult.userAnswers[i] as string)?.toLowerCase() === (q.correctAnswer as string)?.toLowerCase() ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                     </p>
+                   )}
+                   {q.type === "matching" && (
+                     <p className={`${isMatchingCorrect(selectedResult.userAnswers[i], q.correctAnswer) ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"} text-sm flex items-center gap-2`}>
+                       <span>Your matches: {Object.entries(selectedResult.userAnswers[i] as { [term: string]: string }).map(([term, def]) => `${term}: ${def}`).join(", ")}</span>
+                       {isMatchingCorrect(selectedResult.userAnswers[i], q.correctAnswer) ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                     </p>
+                   )}
+                   {(q.type === "multiple-choice" && (selectedResult.userAnswers[i] as string) !== q.correctAnswer) ||
+                    (q.type === "fill-in-the-blank" && (selectedResult.userAnswers[i] as string)?.toLowerCase() !== (q.correctAnswer as string)?.toLowerCase()) ||
+                    (q.type === "matching" && !isMatchingCorrect(selectedResult.userAnswers[i], q.correctAnswer)) ? (
+                     <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                       Correct: {q.type === "multiple-choice" 
+                         ? q.options![["a", "b", "c", "d"].indexOf(q.correctAnswer as string)] 
+                         : q.type === "matching" 
+                           ? (q.correctAnswer as { term: string; definition: string }[]).map(cp => `${cp.term}: ${cp.definition}`).join(", ")
+                           : String(q.correctAnswer)}
+                     </p>
+                   ) : null}
+                 </div>
+               </div>
+             ))}
+           </div>
+         </div>
+       </div>
+     )}
+   </div>
+ )
 }

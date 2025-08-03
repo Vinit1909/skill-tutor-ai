@@ -1,4 +1,4 @@
-import { Lightbulb, Workflow, NotebookTabs, Compass, Shapes, Sparkle, Ungroup, Boxes, Zap, Puzzle } from "lucide-react";   
+import { Lightbulb, Workflow, NotebookTabs, Compass, Shapes, Sparkle, Boxes, Zap, Puzzle } from "lucide-react";   
   
 // icons and colors
 export const ICONS = [

@@ -2,19 +2,24 @@ import { ChatGroq } from "@langchain/groq"
 import { db } from "./firebase"
 import { doc, getDoc } from "firebase/firestore"
 
+interface ChatMessage {
+  role: "user" | "assistant"
+  content: string
+}
+
 export async function callGroqLLM(
-    messages: {role: "user" | "assistant"; content: string}[]
-): Promise<any> {
+    messages: ChatMessage[]
+): Promise<string> {
     if (!process.env.GROQ_API_KEY) {
-        throw new Error("Missing GROQ_API_KEY");
+        throw new Error("Missing GROQ_API_KEY")
     }
 
     const llm = new ChatGroq({
-        model: "llama-3.3-70b-versatile",
+        model: "qwen/qwen3-32b",
         temperature: 0.7, 
         maxTokens: undefined,
         maxRetries: 2,
-    });
+    })
 
     const systemMessage = messages.find(m => m.role === "assistant")?.content || ""
     const skillIdMatch = systemMessage.match(/skillspaces\/([^ ]+)/)
@@ -25,13 +30,26 @@ export async function callGroqLLM(
         const skillRef = doc(db, "users", uid, "skillspaces", skillId)
         const snap = await getDoc(skillRef)
         if (snap.exists()) {
-        const roadmap = snap.data().roadmapJSON
-        console.log("LLM fetched roadmap:", roadmap) // Debugging
-        // Optionally enhance response logic here if needed
+            const roadmap = snap.data().roadmapJSON
+            console.log("LLM fetched roadmap:", roadmap) // Debugging
+            // Optionally enhance response logic here if needed
         }
     }
 
-    const aiMsg = await llm.invoke(messages);
-    // return Array.isArray(aiMsg.content) ? aiMsg.content.join(' ') : aiMsg.content.toString();
-    return aiMsg.content;
+    // Convert ChatMessage[] to BaseMessageLike[]
+    const baseMessages = messages.map(m => ({
+        type: m.role, // 'user' or 'assistant'
+        content: m.content
+    }))
+
+    const aiMsg = await llm.invoke(baseMessages)
+    
+    // Handle different types of content that might be returned
+    if (typeof aiMsg.content === "string") {
+        return aiMsg.content
+    } else if (Array.isArray(aiMsg.content)) {
+        return aiMsg.content.join(" ")
+    } else {
+        return String(aiMsg.content)
+    }
 }

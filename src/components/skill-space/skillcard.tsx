@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from 'react'
 import {
     HoverCard,
     HoverCardContent,
@@ -8,10 +8,8 @@ import {
 	Card,
 	CardContent,
 	CardHeader,
-	CardDescription,
 	CardTitle,
-	CardFooter,
-} from "@/components/ui/card";
+} from "@/components/ui/card"
 import {
 	DropdownMenu,
 	DropdownMenuTrigger,
@@ -19,36 +17,30 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { ChevronDown, Trash2, Edit2, Info, CalendarIcon, EllipsisVertical, BookMarked, Container, Dices, BookOpenText } from 'lucide-react';
-import { useAuthContext } from "@/context/authcontext";
-import { Progress } from "@/components/ui/progress";
-import { SkillSpaceData, deleteSkillSpace, deleteSkillSpaceDeep } from "@/lib/skillspace";
-import { useRouter } from 'next/navigation';
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { Trash2, Edit2, Info, CalendarIcon, EllipsisVertical, Dices, BookOpenText } from 'lucide-react'
+import { useAuthContext } from "@/context/authcontext"
+import { Progress } from "@/components/ui/progress"
+import { SkillSpaceData, deleteSkillSpaceDeep } from "@/lib/skillspace"
+import { useRouter } from 'next/navigation'
 
 interface SkillCardProps {
-	skill: SkillSpaceData;
-	onUpdated?: () => void;
+	skill: SkillSpaceData
+	onUpdated?: () => void
 }
 
 export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
-	const router = useRouter();
-	const { user } = useAuthContext();
-	const [isHovered, setIsHovered] = useState(false);
+	const router = useRouter()
+	const { user } = useAuthContext()
+	const [isHovered, setIsHovered] = useState(false)
 	
 	const progressPercentage = skill.max 
 		? Math.round((skill.value / skill.max) * 100)
 		: 0
 
-	// async function handleDelete() {
-	// 	if (!user?.uid || !skill.id) return;
-	// 	await deleteSkillSpace(user.uid, skill.id);
-	// 	if (onUpdated) onUpdated();
-	// }
-
 	async function handleDelete() {
-		if (!user?.uid || !skill.id) return;
+		if (!user?.uid || !skill.id) return
 
 		try {
 			if (!confirm(`Are you sure you want to delete ${skill.name}?`)) {
@@ -57,21 +49,33 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 			await deleteSkillSpaceDeep(user.uid, skill.id)
 			if (onUpdated) onUpdated()
 		} catch (err) {
-			console.error("Error deleting skillsapce deeply:", err)
+			console.error("Error deleting skillspace deeply:", err)
 			alert("Failed to delete skillspace. Check console.")
 		}
 	}
 
 	function handleEdit() {
-		alert(`Edit skill: ${skill.name}`);
+		alert(`Edit skill: ${skill.name}`)
 	}
 
 	function handleGoLearn() {
-		router.push(`/learn/${skill.id}`);
+		router.push(`/learn/${skill.id}`)
 	}
 
 	function handleGoQuiz() {
-		router.push(`/quiz/${skill.id}`);
+		router.push(`/quiz/${skill.id}`)
+	}
+
+	// Format the creation date with null safety
+	const formatCreatedAt = () => {
+		if (!skill.createdAt?.seconds) {
+			return 'Unknown date'
+		}
+		return new Date(skill.createdAt.seconds * 1000).toLocaleDateString('en-US', { 
+			month: 'long', 
+			day: 'numeric', 
+			year: 'numeric' 
+		})
 	}
 	
 	return (
@@ -100,7 +104,7 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 											<div className="flex items-center pt-2">
 												<CalendarIcon className="mr-2 h-4 w-4 opacity-70" />{" "}
 												<span className="text-xs text-muted-foreground">
-													{new Date(skill.createdAt.seconds * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+													{formatCreatedAt()}
 												</span>
 											</div>
 										</div>
@@ -178,5 +182,5 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
 				</div>			
 			</CardContent>
 		</Card>
-	);
+	)
 }

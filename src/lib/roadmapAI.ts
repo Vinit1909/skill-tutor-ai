@@ -1,4 +1,28 @@
-import { callGroqLLM } from "./llm";
+import { callGroqLLM } from "./llm"
+
+interface RoadmapNode {
+  id: string
+  title: string
+  status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
+  weight: number
+  children?: RoadmapNode[]
+}
+
+interface Roadmap {
+  title: string
+  nodes: RoadmapNode[]
+}
+
+interface Question {
+  nodeId: string
+  question: string
+  shortDesc: string
+}
+
+interface GenerateRoadmapResponse {
+  roadmap: Roadmap
+  questions: Question[]
+}
 
 export async function generateRoadmap({
     skillName, 
@@ -10,10 +34,7 @@ export async function generateRoadmap({
     level?: string
     goals?: string
     priorKnowledge?: string
-}): Promise<{
-    roadmap: any
-    questions: any[]
-}> {
+}): Promise<GenerateRoadmapResponse> {
     const prompt = `
     You are an expert tutor. Generate a JSON roadmap (no code fences) for learning ${skillName}.
     User context:
@@ -54,28 +75,27 @@ export async function generateRoadmap({
     General Instructions:
     No extra text, no commentary, just the JSON structure.
     If you cannot produce JSON, output an empty JSON structure with a "title" and an empty "nodes" array.
-    `;
+    `
 
     const messages = [
         {
             role: "user" as const,
             content: prompt
         }
-    ];
+    ]
 
-    const aiResponse = await callGroqLLM(messages); 
+    const aiResponse = await callGroqLLM(messages)
 
-    // let roadmap;
-    let combined;
+    let combined: { roadmap?: Roadmap; questions?: Question[] }
     try {
-        combined = JSON.parse(aiResponse.trim());
+        combined = JSON.parse(aiResponse.trim())
     } catch (err) {
         console.error("Error parsing AI JSON:", err)
-        combined = {roadmap: null, questions: []};
+        combined = { roadmap: undefined, questions: [] }
     }
 
     if (combined.roadmap && Array.isArray(combined.roadmap.nodes)) {
-        combined.roadmap.nodes = combined.roadmap.nodes.map((n: any) => ({
+        combined.roadmap.nodes = combined.roadmap.nodes.map((n: RoadmapNode) => ({
             ...n,
             status: n.status || "NOT_STARTED",
             weight: n.weight || 1,

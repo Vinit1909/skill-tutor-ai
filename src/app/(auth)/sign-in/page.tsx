@@ -4,7 +4,6 @@ import { useState } from "react"
 import { signInWithEmailAndPassword } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useRouter } from "next/navigation"
-import Link from "next/link" 
 import { Button } from "@/components/ui/button"
 import {
     Card,
@@ -31,8 +30,12 @@ export default function SignInPage() {
         try {
         await signInWithEmailAndPassword(auth, email, password)
         router.push("/dashboard")
-        } catch (err: any) {
-        setError(err.message)
+        } catch (err: unknown) {
+        if (err instanceof Error) {
+            setError(err.message)
+        } else {
+            setError("An unknown error occurred.")
+        }
         }
     }
 

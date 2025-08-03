@@ -40,9 +40,10 @@ export async function POST(req: NextRequest) {
             roadmap,
             questions,
         });
-    } catch (err:any) {
+    } catch (err:unknown) {
         console.error("Error in /api/generate-roadmap:", err);
-        return NextResponse.json({error: err.message}, {status: 500})
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        return NextResponse.json({error: errorMessage}, {status: 500})
     }
 }
 

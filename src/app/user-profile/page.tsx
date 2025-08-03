@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAuthContext } from "@/context/authcontext"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
@@ -37,7 +37,6 @@ import {
   Cell,
   LineChart,
   Line,
-  Tooltip,
   Label,
 } from "recharts"
 import { useToast } from "@/hooks/use-toast"
@@ -48,6 +47,24 @@ import { cn } from "@/lib/utils"
 import UserProfileBadge from "@/components/user-profile-badge"
 import { ShineBorder } from "@/components/magicui/shine-border"
 import { Separator } from "@/components/ui/separator"
+
+interface RoadmapNode {
+  id: string
+  status: string
+  children?: RoadmapChild[]
+}
+
+interface RoadmapChild {
+  id: string
+  status: string
+}
+
+interface SkillData {
+  name?: string
+  roadmapJSON?: {
+    nodes?: RoadmapNode[]
+  }
+}
 
 interface SkillProgress {
   skillId: string
@@ -63,6 +80,19 @@ interface QuizResult {
   quizType: string
   timestamp: { seconds: number }
   timeToComplete?: number
+}
+
+interface SkillQuizStats {
+  name: string
+  avgScore: string
+  attempts: number
+}
+
+interface RecentActivity {
+  skillName: string
+  quizType: string
+  score: number
+  date: string
 }
 
 const COLORS = [
@@ -89,12 +119,7 @@ export default function UserProfileDashboard() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("overview")
 
-  useEffect(() => {
-    if (!user?.uid) return
-    fetchDashboardData()
-  }, [user])
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     if (!user?.uid) return
     setLoading(true)
     try {
@@ -103,9 +128,9 @@ export default function UserProfileDashboard() {
       const skillsData: SkillProgress[] = skillspacesSnap.docs
         .map((doc) => {
           const skillId = doc.id
-          const skillData = doc.data()
-          const nodes = skillData.roadmapJSON?.nodes?.flatMap((n: any) => n.children || []) || []
-          const completedNodes = nodes.filter((n: any) => n.status === "COMPLETED").length
+          const skillData = doc.data() as SkillData
+          const nodes = skillData.roadmapJSON?.nodes?.flatMap((n: RoadmapNode) => n.children || []) || []
+          const completedNodes = nodes.filter((n: RoadmapChild) => n.status === "COMPLETED").length
           const totalNodes = nodes.length
           return {
             skillId,
@@ -115,7 +140,7 @@ export default function UserProfileDashboard() {
             completionPercentage: totalNodes ? (completedNodes / totalNodes) * 100 : 0,
           }
         })
-        .sort((a, b) => b.completionPercentage - a.completionPercentage) // Sort descending
+        .sort((a, b) => b.completionPercentage - a.completionPercentage)
       setSkillProgress(skillsData)
 
       const quizResultsData: QuizResult[] = []
@@ -141,7 +166,12 @@ export default function UserProfileDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.uid, toast])
+
+  useEffect(() => {
+    if (!user?.uid) return
+    fetchDashboardData()
+  }, [user?.uid, fetchDashboardData])
 
   // Aggregated Stats
   const totalSkills = skillProgress.length
@@ -152,7 +182,6 @@ export default function UserProfileDashboard() {
     ? (quizResults.reduce((acc, r) => acc + r.score, 0) / quizResults.length).toFixed(1)
     : "N/A"
   const highestQuizScore = quizResults.length ? Math.max(...quizResults.map((r) => r.score)) : "N/A"
-  const lowestQuizScore = quizResults.length ? Math.min(...quizResults.map((r) => r.score)) : "N/A"
   const quizAttempts = quizResults.length
   const quizTypeDistribution = quizResults.reduce(
     (acc, r) => {
@@ -163,7 +192,7 @@ export default function UserProfileDashboard() {
   )
 
   // Per-skill quiz stats
-  const skillQuizStats = skillProgress
+  const skillQuizStats: SkillQuizStats[] = skillProgress
     .map((skill) => {
       const skillQuizzes = quizResults.filter((q) => q.skillId === skill.skillId)
       return {
@@ -177,7 +206,7 @@ export default function UserProfileDashboard() {
     .sort((a, b) => (b.avgScore === "N/A" ? -1 : Number(b.avgScore)) - (a.avgScore === "N/A" ? -1 : Number(a.avgScore)))
 
   // Additional Metrics
-  const recentActivity = quizResults
+  const recentActivity: RecentActivity[] = quizResults
     .slice(-5)
     .reverse()
     .map((quiz) => {
@@ -438,7 +467,6 @@ export default function UserProfileDashboard() {
                               className={cn(
                                 "text-xs font-medium bg-lime-500 dark:bg-lime-400 text-white dark:text-black hover:bg-lime-500 dark:hover:bg-lime-400 rounded-full px-2 py-1",
                               )}
-                              // variant={activity.score >= 4 ? "default" : activity.score >= 3 ? "secondary" : "outline"}
                             >
                               {activity.score}/5
                             </Badge>
@@ -597,241 +625,241 @@ export default function UserProfileDashboard() {
               </Card>
 
               <Card className="hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
-                <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-2">
-                    <PieChartIcon className="h-4 w-4 dark:text-orange-400 text-orange-500" />
-                    Quiz Types
-                  </CardTitle>
-                  <CardDescription>Distribution of quiz formats</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-2 overflow-x-auto custom-scrollbar">
-                  <ChartContainer
-                    config={chartConfig}
-                    className="mx-auto aspect-square max-h-[250px]"
-                  >
-                    <PieChart>
-                      <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                      <Pie
-                        data={Object.entries(quizTypeDistribution).map(([name, value]) => ({
-                          name: name.replace(/-/g, " "),
-                          quizzes: value,
-                        }))}
-                        dataKey="quizzes"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        strokeWidth={5}
-                      >
-                        <Label
-                          content={({ viewBox }) => {
-                            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                              return (
-                                <text
-                                  x={viewBox.cx}
-                                  y={viewBox.cy}
-                                  textAnchor="middle"
-                                  dominantBaseline="middle"
-                                >
-                                  <tspan
-                                    x={viewBox.cx}
-                                    y={viewBox.cy}
-                                    className="fill-foreground text-3xl font-bold"
-                                  >
-                                    {quizAttempts.toLocaleString()}
-                                  </tspan>
-                                  <tspan
-                                    x={viewBox.cx}
-                                    y={(viewBox.cy || 0) + 24}
-                                    className="fill-muted-foreground"
-                                  >
-                                    Quizzes
-                                  </tspan>
-                                </text>
-                              )
-                            }
-                            return null
-                          }}
-                        />
-                        {Object.entries(quizTypeDistribution).map((_, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
-                            stroke="hsl(var(--background))"
-                            strokeWidth={2}
-                          />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+               <CardHeader>
+                 <CardTitle className="text-base font-medium flex items-center gap-2">
+                   <PieChartIcon className="h-4 w-4 dark:text-orange-400 text-orange-500" />
+                   Quiz Types
+                 </CardTitle>
+                 <CardDescription>Distribution of quiz formats</CardDescription>
+               </CardHeader>
+               <CardContent className="pt-2 overflow-x-auto custom-scrollbar">
+                 <ChartContainer
+                   config={chartConfig}
+                   className="mx-auto aspect-square max-h-[250px]"
+                 >
+                   <PieChart>
+                     <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                     <Pie
+                       data={Object.entries(quizTypeDistribution).map(([name, value]) => ({
+                         name: name.replace(/-/g, " "),
+                         quizzes: value,
+                       }))}
+                       dataKey="quizzes"
+                       nameKey="name"
+                       cx="50%"
+                       cy="50%"
+                       innerRadius={60}
+                       strokeWidth={5}
+                     >
+                       <Label
+                         content={({ viewBox }) => {
+                           if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                             return (
+                               <text
+                                 x={viewBox.cx}
+                                 y={viewBox.cy}
+                                 textAnchor="middle"
+                                 dominantBaseline="middle"
+                               >
+                                 <tspan
+                                   x={viewBox.cx}
+                                   y={viewBox.cy}
+                                   className="fill-foreground text-3xl font-bold"
+                                 >
+                                   {quizAttempts.toLocaleString()}
+                                 </tspan>
+                                 <tspan
+                                   x={viewBox.cx}
+                                   y={(viewBox.cy || 0) + 24}
+                                   className="fill-muted-foreground"
+                                 >
+                                   Quizzes
+                                 </tspan>
+                               </text>
+                             )
+                           }
+                           return null
+                         }}
+                       />
+                       {Object.entries(quizTypeDistribution).map((_, index) => (
+                         <Cell
+                           key={`cell-${index}`}
+                           fill={COLORS[index % COLORS.length]}
+                           stroke="hsl(var(--background))"
+                           strokeWidth={2}
+                         />
+                       ))}
+                     </Pie>
+                   </PieChart>
+                 </ChartContainer>
+               </CardContent>
+             </Card>
+           </div>
+         </TabsContent>
 
-          <TabsContent value="insights" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
-                <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-2">
-                    <AlignStartHorizontal className="h-4 w-4 dark:text-amber-400 text-amber-500" />
-                      Top Finished Skills
-                  </CardTitle>
-                  <CardDescription>Your most completed learning paths</CardDescription>
-                </CardHeader>
-                <CardContent className="overflow-x-auto custom-scrollbar">
-                  <div className="space-y-4">
-                    {topFinishedSkills.length > 0 ? (
-                      topFinishedSkills.map((skill, i) => (
-                        <div key={i} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                "h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium",
-                                i === 0
-                                  ? "bg-yellow-500 text-primary-foreground"
-                                  : i === 1
-                                    ? "bg-zinc-400 text-primary-foreground"
-                                    : i === 2
-                                      ? "bg-amber-600 text-primary-foreground"
-                                      : "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              {i + 1}
-                            </div>
-                            <span className="font-medium">{skill.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Progress value={skill.completionPercentage} className="h-2 w-24" />
-                            <span className="text-sm w-12 text-right">{skill.completionPercentage.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-6 text-muted-foreground">No completed skills yet</div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+         <TabsContent value="insights" className="mt-6">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <Card className="hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
+               <CardHeader>
+                 <CardTitle className="text-base font-medium flex items-center gap-2">
+                   <AlignStartHorizontal className="h-4 w-4 dark:text-amber-400 text-amber-500" />
+                     Top Finished Skills
+                 </CardTitle>
+                 <CardDescription>Your most completed learning paths</CardDescription>
+               </CardHeader>
+               <CardContent className="overflow-x-auto custom-scrollbar">
+                 <div className="space-y-4">
+                   {topFinishedSkills.length > 0 ? (
+                     topFinishedSkills.map((skill, i) => (
+                       <div key={i} className="flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                           <div
+                             className={cn(
+                               "h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium",
+                               i === 0
+                                 ? "bg-yellow-500 text-primary-foreground"
+                                 : i === 1
+                                   ? "bg-zinc-400 text-primary-foreground"
+                                   : i === 2
+                                     ? "bg-amber-600 text-primary-foreground"
+                                     : "bg-muted text-muted-foreground",
+                             )}
+                           >
+                             {i + 1}
+                           </div>
+                           <span className="font-medium">{skill.name}</span>
+                         </div>
+                         <div className="flex items-center gap-2">
+                           <Progress value={skill.completionPercentage} className="h-2 w-24" />
+                           <span className="text-sm w-12 text-right">{skill.completionPercentage.toFixed(1)}%</span>
+                         </div>
+                       </div>
+                     ))
+                   ) : (
+                     <div className="text-center py-6 text-muted-foreground">No completed skills yet</div>
+                   )}
+                 </div>
+               </CardContent>
+             </Card>
 
-              <Card className="hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
-                <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-2">
-                    <ArrowUpNarrowWide className="h-4 w-4 dark:text-rose-400 text-rose-500" />
-                      Most Practiced Skills
-                  </CardTitle>
-                  <CardDescription>Based on quiz attempts</CardDescription>
-                </CardHeader>
-                <CardContent className="overflow-x-auto custom-scrollbar">
-                  <div className="space-y-4">
-                    {mostVisitedSkills.length > 0 ? (
-                      mostVisitedSkills.map((skill, i) => (
-                        <div key={i} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center">
-                              <span className="text-sm font-medium">{i + 1}</span>
-                            </div>
-                            <div>
-                              <p className="font-medium">{skill.name}</p>
-                              <p className="text-xs text-muted-foreground">Avg. score: {skill.avgScore}/5</p>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="bg-neutral-100 border-neutral-100 dark:bg-neutral-700 border dark:border-neutral-700">
-                            {skill.attempts} quiz{skill.attempts !== 1 ? "zes" : ""}
-                          </Badge>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-6 text-muted-foreground">No quiz attempts yet</div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+             <Card className="hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
+               <CardHeader>
+                 <CardTitle className="text-base font-medium flex items-center gap-2">
+                   <ArrowUpNarrowWide className="h-4 w-4 dark:text-rose-400 text-rose-500" />
+                     Most Practiced Skills
+                 </CardTitle>
+                 <CardDescription>Based on quiz attempts</CardDescription>
+               </CardHeader>
+               <CardContent className="overflow-x-auto custom-scrollbar">
+                 <div className="space-y-4">
+                   {mostVisitedSkills.length > 0 ? (
+                     mostVisitedSkills.map((skill, i) => (
+                       <div key={i} className="flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                           <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center">
+                             <span className="text-sm font-medium">{i + 1}</span>
+                           </div>
+                           <div>
+                             <p className="font-medium">{skill.name}</p>
+                             <p className="text-xs text-muted-foreground">Avg. score: {skill.avgScore}/5</p>
+                           </div>
+                         </div>
+                         <Badge variant="outline" className="bg-neutral-100 border-neutral-100 dark:bg-neutral-700 border dark:border-neutral-700">
+                           {skill.attempts} quiz{skill.attempts !== 1 ? "zes" : ""}
+                         </Badge>
+                       </div>
+                     ))
+                   ) : (
+                     <div className="text-center py-6 text-muted-foreground">No quiz attempts yet</div>
+                   )}
+                 </div>
+               </CardContent>
+             </Card>
+           </div>
 
-            <Card className="mt-6 hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
-              <CardHeader>
-                <CardTitle className="text-base font-medium flex items-center gap-2">
-                    <Asterisk className="h-4 w-4 dark:text-cyan-400 text-cyan-500" />
-                      Learning Patterns
-                  </CardTitle>
-                <CardDescription>Analysis of your learning habits</CardDescription>
-              </CardHeader>
-              <CardContent className="overflow-x-auto custom-scrollbar">
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div className="space-y-2 bg-neutral-100 dark:bg-neutral-700 rounded-xl p-4">
-                    <h3 className="text-sm font-medium">Completion Rate</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="h-12 w-12 rounded-full flex items-center justify-center">
-                        <span className="text-lg font-bold text-primary">{overallCompletion}%</span>
-                      </div>
-                      <div>
-                        <Separator orientation="vertical" className="h-8 mx-2 " />
-                      </div>
-                      <div className="text-sm">
-                        <p>Overall completion across all skills</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {Number(overallCompletion) < 30
-                            ? "Just starting out"
-                            : Number(overallCompletion) < 60
-                              ? "Making good progress"
-                              : "Well on your way to mastery"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+           <Card className="mt-6 hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl">
+             <CardHeader>
+               <CardTitle className="text-base font-medium flex items-center gap-2">
+                   <Asterisk className="h-4 w-4 dark:text-cyan-400 text-cyan-500" />
+                     Learning Patterns
+                 </CardTitle>
+               <CardDescription>Analysis of your learning habits</CardDescription>
+             </CardHeader>
+             <CardContent className="overflow-x-auto custom-scrollbar">
+               <div className="grid md:grid-cols-3 gap-6">
+                 <div className="space-y-2 bg-neutral-100 dark:bg-neutral-700 rounded-xl p-4">
+                   <h3 className="text-sm font-medium">Completion Rate</h3>
+                   <div className="flex items-center gap-2">
+                     <div className="h-12 w-12 rounded-full flex items-center justify-center">
+                       <span className="text-lg font-bold text-primary">{overallCompletion}%</span>
+                     </div>
+                     <div>
+                       <Separator orientation="vertical" className="h-8 mx-2 " />
+                     </div>
+                     <div className="text-sm">
+                       <p>Overall completion across all skills</p>
+                       <p className="text-xs text-muted-foreground mt-1">
+                         {Number(overallCompletion) < 30
+                           ? "Just starting out"
+                           : Number(overallCompletion) < 60
+                             ? "Making good progress"
+                             : "Well on your way to mastery"}
+                       </p>
+                     </div>
+                   </div>
+                 </div>
 
-                  <div className="space-y-2 bg-neutral-100 dark:bg-neutral-700 rounded-xl p-4">
-                    <h3 className="text-sm font-medium">Quiz Performance</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="h-12 w-12 flex items-center justify-center">
-                        <span className="text-lg font-bold text-primary">{avgQuizScore}</span>
-                      </div>
-                      <div>
-                        <Separator orientation="vertical" className="h-8 mx-2 " />
-                      </div>
-                      <div className="text-sm">
-                        <p>Average quiz score (out of 5)</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {avgQuizScore === "N/A"
-                            ? "Not enough data"
-                            : Number(avgQuizScore) < 3
-                              ? "Room for improvement"
-                              : Number(avgQuizScore) < 4
-                                ? "Good understanding"
-                                : "Excellent comprehension"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                 <div className="space-y-2 bg-neutral-100 dark:bg-neutral-700 rounded-xl p-4">
+                   <h3 className="text-sm font-medium">Quiz Performance</h3>
+                   <div className="flex items-center gap-2">
+                     <div className="h-12 w-12 flex items-center justify-center">
+                       <span className="text-lg font-bold text-primary">{avgQuizScore}</span>
+                     </div>
+                     <div>
+                       <Separator orientation="vertical" className="h-8 mx-2 " />
+                     </div>
+                     <div className="text-sm">
+                       <p>Average quiz score (out of 5)</p>
+                       <p className="text-xs text-muted-foreground mt-1">
+                         {avgQuizScore === "N/A"
+                           ? "Not enough data"
+                           : Number(avgQuizScore) < 3
+                             ? "Room for improvement"
+                             : Number(avgQuizScore) < 4
+                               ? "Good understanding"
+                               : "Excellent comprehension"}
+                       </p>
+                     </div>
+                   </div>
+                 </div>
 
-                  <div className="space-y-2 bg-neutral-100 dark:bg-neutral-700 rounded-xl p-4">
-                    <h3 className="text-sm font-medium">Learning Activity</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="h-12 w-12 flex items-center justify-center">
-                        <span className="text-lg font-bold text-primary">{quizAttempts}</span>
-                      </div>
-                      <div>
-                        <Separator orientation="vertical" className="h-8 mx-2" />
-                      </div>
-                      <div className="text-sm">
-                        <p>Total quiz attempts</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {quizAttempts === 0
-                            ? "Time to start practicing!"
-                            : quizAttempts < 5
-                              ? "Keep practicing to improve"
-                              : "Consistent practice habit"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </>
-  )
+                 <div className="space-y-2 bg-neutral-100 dark:bg-neutral-700 rounded-xl p-4">
+                   <h3 className="text-sm font-medium">Learning Activity</h3>
+                   <div className="flex items-center gap-2">
+                     <div className="h-12 w-12 flex items-center justify-center">
+                       <span className="text-lg font-bold text-primary">{quizAttempts}</span>
+                     </div>
+                     <div>
+                       <Separator orientation="vertical" className="h-8 mx-2" />
+                     </div>
+                     <div className="text-sm">
+                       <p>Total quiz attempts</p>
+                       <p className="text-xs text-muted-foreground mt-1">
+                         {quizAttempts === 0
+                           ? "Time to start practicing!"
+                           : quizAttempts < 5
+                             ? "Keep practicing to improve"
+                             : "Consistent practice habit"}
+                       </p>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             </CardContent>
+           </Card>
+         </TabsContent>
+       </Tabs>
+     </div>
+   </>
+ )
 }

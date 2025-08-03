@@ -3,6 +3,16 @@ import { collection, doc, getDoc, getDocs, setDoc, Timestamp } from "firebase/fi
 import { db } from "./firebase"
 import { getSkillSpace } from "./skillspace"
 
+interface RoadmapNode {
+  id: string
+  children?: RoadmapChild[]
+}
+
+interface RoadmapChild {
+  id: string
+  status: string
+}
+
 export interface QuizQuestion {
   type: "multiple-choice" | "fill-in-the-blank" | "matching"
   question: string
@@ -23,17 +33,17 @@ export interface QuizResult {
   userAnswers: (number | string | { [term: string]: string })[]
   score: number
   timestamp: Timestamp
-  quizType: string // Added
-  questions: QuizQuestion[] // Added
+  quizType: string
+  questions: QuizQuestion[]
 }
 
 export async function getCompletedNodes(uid: string, skillId: string): Promise<string[]> {
   const skill = await getSkillSpace(uid, skillId)
   if (!skill?.roadmapJSON?.nodes) return []
   return skill.roadmapJSON.nodes
-    .flatMap((node: any) => node.children || [])
-    .filter((child: any) => child.status === "COMPLETED")
-    .map((child: any) => child.id)
+    .flatMap((node: RoadmapNode) => node.children || [])
+    .filter((child: RoadmapChild) => child.status === "COMPLETED")
+    .map((child: RoadmapChild) => child.id)
 }
 
 export async function generateQuizQuestions(uid: string, skillId: string, nodeIds: string[]): Promise<Quiz & { id: string }> {
@@ -105,7 +115,7 @@ export async function saveQuizResult(
   nodeIds: string[],
   userAnswers: (number | string | { [term: string]: string })[],
   questions: QuizQuestion[],
-  quizType: string // Added parameter
+  quizType: string
 ): Promise<string> {
   const quizRef = doc(db, "users", uid, "skillspaces", skillId, "quizzes", quizId)
   const quizSnap = await getDoc(quizRef)
@@ -139,8 +149,8 @@ export async function saveQuizResult(
     userAnswers,
     score,
     timestamp: Timestamp.now(),
-    quizType, // Added
-    questions // Added
+    quizType,
+    questions
   }
 
   const resultRef = doc(collection(db, "users", uid, "skillspaces", skillId, "quizResults"))

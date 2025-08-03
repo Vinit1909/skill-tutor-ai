@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
+import React, { useState } from "react"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -9,24 +9,24 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+} from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { WandSparkles } from "lucide-react";
-import { RiAiGenerate } from "react-icons/ri";
-import { ShineBorder } from "../magicui/shine-border";
+} from "@/components/ui/select"
+import { WandSparkles } from "lucide-react"
+import { RiAiGenerate } from "react-icons/ri"
+import { ShineBorder } from "../magicui/shine-border"
 
 interface OnboardingWizardProps {
-  skillName: string;
-  uid: string;
-  skillId: string;
-  onComplete: () => void;
+  skillName: string
+  uid: string
+  skillId: string
+  onComplete: () => void
 }
 
 export default function OnboardingWizard({
@@ -35,15 +35,15 @@ export default function OnboardingWizard({
   skillId,
   onComplete
 }: OnboardingWizardProps) {
-  const [level, setLevel] = useState("");
-  const [goals, setGoals] = useState("");
-  const [priorKnowledge, setPriorKnowledge] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [level, setLevel] = useState("")
+  const [goals, setGoals] = useState("")
+  const [priorKnowledge, setPriorKnowledge] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   async function handleSubmit() {
-    setLoading(true);
-    setError("");
+    setLoading(true)
+    setError("")
 
     try {
       const res = await fetch("/api/generate-roadmap", {
@@ -56,17 +56,18 @@ export default function OnboardingWizard({
           goals,
           priorKnowledge,
         }),
-      });
-      const data = await res.json();
+      })
+      const data = await res.json()
 
       if (data.error) {
-        throw new Error(data.error);
+        throw new Error(data.error)
       }
-      onComplete();
-    } catch (err: any) {
-      setError(err.message);
+      onComplete()
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred"
+      setError(errorMessage)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
@@ -75,9 +76,9 @@ export default function OnboardingWizard({
       <Card className="w-[400px] max-h-[90vh] relative overflow-auto dark:bg-neutral-900">
         <ShineBorder shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]} />
         <CardHeader>
-          <CardTitle><div className="flex gap-2"><WandSparkles className="h-4 w-4"/>Hi I'm your {skillName} Wizard</div></CardTitle>
+          <CardTitle><div className="flex gap-2"><WandSparkles className="h-4 w-4"/>Hi I&apos;m your {skillName} Wizard</div></CardTitle>
           <CardDescription>
-            Let's create a tailored roadmap for you!
+            Let&apos;s create a tailored roadmap for you!
           </CardDescription>
         </CardHeader>
 
@@ -169,5 +170,5 @@ export default function OnboardingWizard({
         </CardFooter>
       </Card>
     </div>
-  );
+  )
 }

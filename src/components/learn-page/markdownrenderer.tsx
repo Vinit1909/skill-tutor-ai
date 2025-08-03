@@ -4,8 +4,8 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import remarkMath from "remark-math" // Import remark-math for LaTeX parsing
-import rehypeMathjax from "rehype-mathjax" // Import rehype-mathjax for LaTeX rendering
+import remarkMath from "remark-math"
+import rehypeMathjax from "rehype-mathjax"
 import { Highlight, themes } from "prism-react-renderer"
 import { ClipboardCheck, Copy } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -14,7 +14,6 @@ interface CodeProps extends React.HTMLAttributes<HTMLPreElement> {
     inline?: boolean
     className?: string
     children?: React.ReactNode
-    node?: any
 }
 
 interface MarkdownRendererProps {
@@ -37,10 +36,10 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]} // Add remark-math for LaTeX parsing
-      rehypePlugins={[rehypeMathjax]} // Add rehype-mathjax for LaTeX rendering
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeMathjax]}
       components={{
-        code({ node, inline, className, children, ...props }: CodeProps) {
+        code({ inline, className, children, ...props }: CodeProps) {
           const match = /language-(\w+)/.exec(className || "")
           const isCodeBlock = match && !inline
           const language = match?.[1] || "text"
@@ -66,9 +65,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             )
           }
         },
-        // Add a custom component for math blocks ($$...$$)
-        // Custom component for math blocks ($$...$$)
-        div({ node, className, children, ...props }) {
+        div({ className, children, ...props }) {
             if (className?.includes("math-display")) {
               return (
                 <div style={{ overflowX: "auto" }}>
@@ -80,59 +77,58 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             }
             return <div {...props}>{children}</div>
         },
-        // Custom component for inline math ($...$)
-        span({ node, className, children, ...props }) {
+        span({ className, children, ...props }) {
             if (className?.includes("math-inline")) {
                 return <span className="math-inline" {...props}>{children}</span>
             }
             return <span {...props}>{children}</span>
         },
-        h1: ({ node, children, ...props }) => (
+        h1: ({ children, ...props }) => (
           <h1 className="text-2xl font-bold mt-6 mb-4" {...props}>
             {children}
           </h1>
         ),
-        h2: ({ node, children, ...props }) => (
+        h2: ({ children, ...props }) => (
           <h2 className="text-xl font-semibold mt-5 mb-3" {...props}>
             {children}
           </h2>
         ),
-        h3: ({ node, children, ...props }) => (
+        h3: ({ children, ...props }) => (
           <h3 className="text-lg font-semibold mt-4 mb-2" {...props}>
             {children}
           </h3>
         ),
-        h4: ({ node, children, ...props }) => (
+        h4: ({ children, ...props }) => (
           <h4 className="text-base font-medium mt-3 mb-2" {...props}>
             {children}
           </h4>
         ),
-        h5: ({ node, children, ...props }) => (
+        h5: ({ children, ...props }) => (
           <h5 className="text-sm font-medium mt-2 mb-1" {...props}>
             {children}
           </h5>
         ),
-        h6: ({ node, children, ...props }) => (
+        h6: ({ children, ...props }) => (
           <h6 className="text-xs font-medium mt-2 mb-1" {...props}>
             {children}
           </h6>
         ),
-        ul: ({ node, children, ...props }) => (
+        ul: ({ children, ...props }) => (
           <ul className="my-3 list-disc list-inside ml-6" {...props}>
             {children}
           </ul>
         ),
-        ol: ({ node, children, ...props }) => (
+        ol: ({ children, ...props }) => (
           <ol className="my-3 list-decimal list-inside ml-6" {...props}>
             {children}
           </ol>
         ),
-        li: ({ node, children, ...props }) => (
+        li: ({ children, ...props }) => (
           <li className="my-2 leading-relaxed" {...props}>
             {children}
           </li>
         ),
-        blockquote: ({ node, children, ...props }) => (
+        blockquote: ({ children, ...props }) => (
           <blockquote
             className={`border-l-4 pl-4 italic my-4 ${isDarkMode ? "border-neutral-600" : "border-neutral-300"}`}
             {...props}
@@ -141,7 +137,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           </blockquote>
         ),
         hr: ({ ...props }) => <hr className={isDarkMode ? "border-neutral-600" : "border-neutral-300"} {...props} />,
-        table: ({ node, children, ...props }) => (
+        table: ({ children, ...props }) => (
           <div className="overflow-auto my-4">
             <table
               className={`border-collapse w-full text-sm ${isDarkMode ? "border-neutral-600" : "border-neutral-300"}`}
@@ -151,17 +147,17 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             </table>
           </div>
         ),
-        thead: ({ node, children, ...props }) => (
+        thead: ({ children, ...props }) => (
           <thead className={isDarkMode ? "bg-neutral-800" : "bg-neutral-100"} {...props}>
             {children}
           </thead>
         ),
-        tr: ({ node, children, ...props }) => (
+        tr: ({ children, ...props }) => (
           <tr className={isDarkMode ? "border-neutral-600" : "border-neutral-300"} {...props}>
             {children}
           </tr>
         ),
-        th: ({ node, children, ...props }) => (
+        th: ({ children, ...props }) => (
           <th
             className={`px-3 py-2 text-left font-semibold ${
               isDarkMode ? "border-neutral-600 text-neutral-200" : "border-neutral-300 text-neutral-800"
@@ -171,7 +167,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             {children}
           </th>
         ),
-        td: ({ node, children, ...props }) => (
+        td: ({ children, ...props }) => (
           <td
             className={`px-3 py-2 ${
               isDarkMode ? "border-neutral-600 text-neutral-300" : "border-neutral-300 text-neutral-700"
@@ -181,7 +177,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             {children}
           </td>
         ),
-        p: ({ node, children, ...props }) => (
+        p: ({ children, ...props }) => (
           <p className="my-3 leading-relaxed" {...props}>
             {children}
           </p>
@@ -247,7 +243,7 @@ function CodeBlockWithCopy({
           )}
         </button>
       </div>
-    <Highlight theme={isDarkMode ? themes.nightOwl : themes.nightOwlLight} code={code} language={language as any}>
+    <Highlight theme={isDarkMode ? themes.nightOwl : themes.nightOwlLight} code={code} language={language}>
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
             <pre
             className={`${className} ${isDarkMode ? "dark" : ""}`}

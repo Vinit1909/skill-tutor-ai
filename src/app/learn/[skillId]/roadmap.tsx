@@ -8,7 +8,7 @@ import Image from "next/image"
 import { IoCreateOutline } from "react-icons/io5"
 import { ChevronRight, WandSparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Sidebar, SidebarContent, SidebarHeader, SidebarProvider, SidebarFooter } from "@/components/ui/sidebar"
+import { Sidebar, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { NodeStatus, RoadmapNode, SkillSpaceData } from "@/lib/skillspace";
