@@ -176,62 +176,154 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
     return null
   }
 
+  // async function sendUserMessage(text: string) {
+  //   if (!text.trim() || !skill) return
+
+  //   const userMsg: ChatMessage = { role: "user", content: text, nodeId: activeNode ?? undefined }
+  //   setMessages((prev) => [...prev, userMsg])
+  //   setIsAiResponding(true)
+
+  //   if (user?.uid && skillId) {
+  //     await addChatMessage(user.uid, skillId, "user", text)
+  //   }
+
+  //   const activeNodeData = findNode(skill.roadmapJSON?.nodes || [], activeNode)
+  //   const systemMessage: ChatMessage = {
+  //     role: "assistant",
+  //     content: buildSystemPrompt(skill, activeNodeData),
+  //     nodeId: activeNode ?? "",
+  //     skillId,
+  //   }
+
+  //   const finalMessages = [systemMessage, ...messages, userMsg]
+
+  //   try {
+  //     const response = await fetch("/api/llm", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ messages: finalMessages }),
+  //     })
+  //     if (!response.ok) throw new Error(`LLM call failed: ${response.status}`)
+
+  //     const data = await response.json()
+  //     if (data.error) throw new Error(data.error)
+
+  //     const aiContent = data.content ?? "No response content."
+  //     const aiMsg: ChatMessage = {
+  //       role: "assistant",
+  //       content: aiContent,
+  //       nodeId: activeNode ?? "",
+  //       skillId,
+  //     }
+  //     setMessages((prev) => [...prev, aiMsg])
+
+  //     if (user?.uid && skillId) {
+  //       await addChatMessage(user.uid, skillId, "assistant", aiContent)
+  //     }
+  //   } catch (err: unknown) {
+  //     console.error("Error calling LLM:", err)
+  //     const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
+  //     const errorMsg: ChatMessage = { role: "assistant", content: `Error: ${errorMessage}` }
+  //     setMessages((prev) => [...prev, errorMsg])
+  //     if (user?.uid && skillId) {
+  //       await addChatMessage(user.uid, skillId, "assistant", errorMsg.content)
+  //     }
+  //   } finally {
+  //     setIsAiResponding(false)
+  //   }
+  // }
+
   async function sendUserMessage(text: string) {
-    if (!text.trim() || !skill) return
+  if (!text.trim() || !skill) return
 
-    const userMsg: ChatMessage = { role: "user", content: text, nodeId: activeNode ?? undefined }
-    setMessages((prev) => [...prev, userMsg])
-    setIsAiResponding(true)
+  const userMsg: ChatMessage = { role: "user", content: text, nodeId: activeNode ?? undefined }
+  setMessages((prev) => [...prev, userMsg])
+  setIsAiResponding(true)
 
-    if (user?.uid && skillId) {
-      await addChatMessage(user.uid, skillId, "user", text)
+  if (user?.uid && skillId) {
+    await addChatMessage(user.uid, skillId, "user", text)
+  }
+
+  const activeNodeData = findNode(skill.roadmapJSON?.nodes || [], activeNode)
+  const systemMessage: ChatMessage = {
+    role: "assistant",
+    content: buildSystemPrompt(skill, activeNodeData),
+    nodeId: activeNode ?? "",
+    skillId,
+  }
+
+  const finalMessages = [systemMessage, ...messages, userMsg]
+
+  let response: Response | undefined;
+  try {
+    response = await fetch("/api/llm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: finalMessages }),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `HTTP ${response.status}`)
     }
 
-    const activeNodeData = findNode(skill.roadmapJSON?.nodes || [], activeNode)
-    const systemMessage: ChatMessage = {
+    const data = await response.json()
+    if (data.error) throw new Error(data.error)
+
+    const aiContent = data.content ?? "No response content."
+    const aiMsg: ChatMessage = {
       role: "assistant",
-      content: buildSystemPrompt(skill, activeNodeData),
+      content: aiContent,
       nodeId: activeNode ?? "",
       skillId,
     }
 
-    const finalMessages = [systemMessage, ...messages, userMsg]
-
-    try {
-      const response = await fetch("/api/llm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: finalMessages }),
-      })
-      if (!response.ok) throw new Error(`LLM call failed: ${response.status}`)
-
-      const data = await response.json()
-      if (data.error) throw new Error(data.error)
-
-      const aiContent = data.content ?? "No response content."
-      const aiMsg: ChatMessage = {
-        role: "assistant",
-        content: aiContent,
-        nodeId: activeNode ?? "",
-        skillId,
-      }
-      setMessages((prev) => [...prev, aiMsg])
-
-      if (user?.uid && skillId) {
-        await addChatMessage(user.uid, skillId, "assistant", aiContent)
-      }
-    } catch (err: unknown) {
-      console.error("Error calling LLM:", err)
-      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
-      const errorMsg: ChatMessage = { role: "assistant", content: `Error: ${errorMessage}` }
-      setMessages((prev) => [...prev, errorMsg])
-      if (user?.uid && skillId) {
-        await addChatMessage(user.uid, skillId, "assistant", errorMsg.content)
-      }
-    } finally {
-      setIsAiResponding(false)
+    // Log provider info (but don't show to user unless debugging)
+    if (data.switched) {
+      console.log(`🔄 AI switched to ${data.provider} for better reliability`)
+      // Optionally show a subtle success message
+      // toast({ title: "Switched to backup AI for better performance", duration: 2000 })
+    } else {
+      console.log(`💬 AI response from ${data.provider}`)
     }
+
+    setMessages((prev) => [...prev, aiMsg])
+
+    if (user?.uid && skillId) {
+      await addChatMessage(user.uid, skillId, "assistant", aiContent)
+    }
+
+  } catch (err: unknown) {
+    console.error("Error calling LLM:", err)
+    const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
+    
+    // Only show error if ALL providers truly failed
+    let userFriendlyMessage: string
+    
+    if (errorMessage.includes("All") && errorMessage.includes("providers failed")) {
+      userFriendlyMessage = "I'm experiencing technical difficulties with all AI services right now. Please try again in a few minutes, or contact support if this persists."
+    } else if (errorMessage.includes("No LLM providers available")) {
+      userFriendlyMessage = "AI services are temporarily offline for maintenance. Please try again shortly."
+    } else if (response && response.status >= 500) {
+      userFriendlyMessage = "There's a temporary server issue. Please try your question again."
+    } else {
+      // For other errors, encourage retry without being alarming
+      userFriendlyMessage = "I had trouble processing that. Could you please try asking your question again?"
+    }
+    
+    const errorMsg: ChatMessage = { 
+      role: "assistant", 
+      content: userFriendlyMessage
+    }
+    
+    setMessages((prev) => [...prev, errorMsg])
+    if (user?.uid && skillId) {
+      await addChatMessage(user.uid, skillId, "assistant", errorMsg.content)
+    }
+  } finally {
+    setIsAiResponding(false)
   }
+}
 
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current
