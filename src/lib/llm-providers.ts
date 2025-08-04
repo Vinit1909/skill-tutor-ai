@@ -1,6 +1,6 @@
 import { ChatGroq } from "@langchain/groq"
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
-import { ChatCohere } from "@langchain/cohere"
+// import { ChatCohere } from "@langchain/cohere"
 import { ChatOpenAI } from "@langchain/openai"
 import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 
@@ -141,27 +141,27 @@ class MultiLLMManager {
     }
 
     // Cohere - Good for various tasks
-    if (process.env.COHERE_API_KEY) {
-      try {
-        this.providers.push({
-          name: "Cohere",
-          model: new ChatCohere({
-            model: "command-r-plus",
-            temperature: 0.7,
-            maxRetries: 2,
-            apiKey: process.env.COHERE_API_KEY,
-          }),
-          available: true,
-          successCount: 0,
-          failureCount: 0
-        })
-        console.log("✅ Cohere provider initialized")
-      } catch (error) {
-        console.warn("⚠️ Failed to initialize Cohere:", error)
-      }
-    } else {
-      console.log("⚪ Cohere API key not found, skipping...")
-    }
+    // if (process.env.COHERE_API_KEY) {
+    //   try {
+    //     this.providers.push({
+    //       name: "Cohere",
+    //       model: new ChatCohere({
+    //         model: "command-r-plus",
+    //         temperature: 0.7,
+    //         maxRetries: 2,
+    //         apiKey: process.env.COHERE_API_KEY,
+    //       }),
+    //       available: true,
+    //       successCount: 0,
+    //       failureCount: 0
+    //     })
+    //     console.log("✅ Cohere provider initialized")
+    //   } catch (error) {
+    //     console.warn("⚠️ Failed to initialize Cohere:", error)
+    //   }
+    // } else {
+    //   console.log("⚪ Cohere API key not found, skipping...")
+    // }
 
     // Hugging Face - Community models (try last as it can be slower)
     if (process.env.HUGGINGFACE_API_KEY) {
