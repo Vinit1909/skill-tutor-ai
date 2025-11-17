@@ -10,7 +10,7 @@ import { getSkillSpace, NodeStatus, SkillSpaceData } from "@/lib/skillspace"
 import { useAuthContext } from "@/context/authcontext"
 import { loadChatMessages, addChatMessage } from "@/lib/skillChat"
 import { updateNodeStatus } from "@/lib/skillspace"
-import { ChevronDown, CircleCheckBig, Globe, Loader, Orbit, PlusIcon, UndoDot } from "lucide-react"
+import { ChevronRight, CircleCheckBig, Globe, HelpCircle, Loader, Orbit, Play, PlusIcon} from "lucide-react"
 import { ICONS, COLORS } from "@/lib/constants"
 import { shuffleArray } from "@/lib/utils"
 import { QuestionCard, QuestionData } from "@/components/learn-page/question-card"
@@ -234,96 +234,96 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
   // }
 
   async function sendUserMessage(text: string) {
-  if (!text.trim() || !skill) return
+    if (!text.trim() || !skill) return
 
-  const userMsg: ChatMessage = { role: "user", content: text, nodeId: activeNode ?? undefined }
-  setMessages((prev) => [...prev, userMsg])
-  setIsAiResponding(true)
+    const userMsg: ChatMessage = { role: "user", content: text, nodeId: activeNode ?? undefined }
+    setMessages((prev) => [...prev, userMsg])
+    setIsAiResponding(true)
 
-  if (user?.uid && skillId) {
-    await addChatMessage(user.uid, skillId, "user", text)
-  }
-
-  const activeNodeData = findNode(skill.roadmapJSON?.nodes || [], activeNode)
-  const systemMessage: ChatMessage = {
-    role: "assistant",
-    content: buildSystemPrompt(skill, activeNodeData),
-    nodeId: activeNode ?? "",
-    skillId,
-  }
-
-  const finalMessages = [systemMessage, ...messages, userMsg]
-
-  let response: Response | undefined;
-  try {
-    response = await fetch("/api/llm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: finalMessages }),
-    })
-    
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `HTTP ${response.status}`)
+    if (user?.uid && skillId) {
+      await addChatMessage(user.uid, skillId, "user", text)
     }
 
-    const data = await response.json()
-    if (data.error) throw new Error(data.error)
-
-    const aiContent = data.content ?? "No response content."
-    const aiMsg: ChatMessage = {
+    const activeNodeData = findNode(skill.roadmapJSON?.nodes || [], activeNode)
+    const systemMessage: ChatMessage = {
       role: "assistant",
-      content: aiContent,
+      content: buildSystemPrompt(skill, activeNodeData),
       nodeId: activeNode ?? "",
       skillId,
     }
 
-    // Log provider info (but don't show to user unless debugging)
-    if (data.switched) {
-      console.log(`🔄 AI switched to ${data.provider} for better reliability`)
-      // Optionally show a subtle success message
-      // toast({ title: "Switched to backup AI for better performance", duration: 2000 })
-    } else {
-      console.log(`💬 AI response from ${data.provider}`)
-    }
+    const finalMessages = [systemMessage, ...messages, userMsg]
 
-    setMessages((prev) => [...prev, aiMsg])
+    let response: Response | undefined;
+    try {
+      response = await fetch("/api/llm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: finalMessages }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
 
-    if (user?.uid && skillId) {
-      await addChatMessage(user.uid, skillId, "assistant", aiContent)
-    }
+      const data = await response.json()
+      if (data.error) throw new Error(data.error)
 
-  } catch (err: unknown) {
-    console.error("Error calling LLM:", err)
-    const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
-    
-    // Only show error if ALL providers truly failed
-    let userFriendlyMessage: string
-    
-    if (errorMessage.includes("All") && errorMessage.includes("providers failed")) {
-      userFriendlyMessage = "I'm experiencing technical difficulties with all AI services right now. Please try again in a few minutes, or contact support if this persists."
-    } else if (errorMessage.includes("No LLM providers available")) {
-      userFriendlyMessage = "AI services are temporarily offline for maintenance. Please try again shortly."
-    } else if (response && response.status >= 500) {
-      userFriendlyMessage = "There's a temporary server issue. Please try your question again."
-    } else {
-      // For other errors, encourage retry without being alarming
-      userFriendlyMessage = "I had trouble processing that. Could you please try asking your question again?"
+      const aiContent = data.content ?? "No response content."
+      const aiMsg: ChatMessage = {
+        role: "assistant",
+        content: aiContent,
+        nodeId: activeNode ?? "",
+        skillId,
+      }
+
+      // Log provider info (but don't show to user unless debugging)
+      if (data.switched) {
+        console.log(`🔄 AI switched to ${data.provider} for better reliability`)
+        // Optionally show a subtle success message
+        // toast({ title: "Switched to backup AI for better performance", duration: 2000 })
+      } else {
+        console.log(`💬 AI response from ${data.provider}`)
+      }
+
+      setMessages((prev) => [...prev, aiMsg])
+
+      if (user?.uid && skillId) {
+        await addChatMessage(user.uid, skillId, "assistant", aiContent)
+      }
+
+    } catch (err: unknown) {
+      console.error("Error calling LLM:", err)
+      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
+      
+      // Only show error if ALL providers truly failed
+      let userFriendlyMessage: string
+      
+      if (errorMessage.includes("All") && errorMessage.includes("providers failed")) {
+        userFriendlyMessage = "I'm experiencing technical difficulties with all AI services right now. Please try again in a few minutes, or contact support if this persists."
+      } else if (errorMessage.includes("No LLM providers available")) {
+        userFriendlyMessage = "AI services are temporarily offline for maintenance. Please try again shortly."
+      } else if (response && response.status >= 500) {
+        userFriendlyMessage = "There's a temporary server issue. Please try your question again."
+      } else {
+        // For other errors, encourage retry without being alarming
+        userFriendlyMessage = "I had trouble processing that. Could you please try asking your question again?"
+      }
+      
+      const errorMsg: ChatMessage = { 
+        role: "assistant", 
+        content: userFriendlyMessage
+      }
+      
+      setMessages((prev) => [...prev, errorMsg])
+      if (user?.uid && skillId) {
+        await addChatMessage(user.uid, skillId, "assistant", errorMsg.content)
+      }
+    } finally {
+      setIsAiResponding(false)
     }
-    
-    const errorMsg: ChatMessage = { 
-      role: "assistant", 
-      content: userFriendlyMessage
-    }
-    
-    setMessages((prev) => [...prev, errorMsg])
-    if (user?.uid && skillId) {
-      await addChatMessage(user.uid, skillId, "assistant", errorMsg.content)
-    }
-  } finally {
-    setIsAiResponding(false)
   }
-}
 
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current
@@ -509,7 +509,7 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
     setActiveNode(selectedNodeId)
     if (user?.uid && skillId) {
       await updateDoc(doc(db, "users", user.uid, "skillspaces", skillId), { activeNodeId: selectedNodeId })
-    }
+    } 
   }
 
   if (role === "assistant") {
@@ -525,8 +525,10 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex gap-1 text-neutral-500 dark:text-neutral-400 hover:dark:text-white p-2 rounded-full hover:bg-muted dark:hover:bg-neutral-700">
-                    <ChevronDown className="h-4 w-4" />
-                    {nodeId}
+                    <ChevronRight className="h-4 w-4" />
+                    {nodes.find((n: RoadmapNode) => n.id === nodeId || n.children?.some((c: { id: string }) => c.id === nodeId))?.children?.find((c: { id: string }) => c.id === nodeId)?.title ||
+                      nodes.find((n: RoadmapNode) => n.id === nodeId)?.title ||
+                      "Select Topic"}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)] max-h-60 overflow-y-auto custom-scrollbar">
@@ -570,7 +572,7 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
                       variant="ghost"
                       onClick={() => handleStatusUpdate("IN_PROGRESS")}
                     >
-                      <Loader className="h-4 w-4" /> Start Learning
+                      <Play className="h-4 w-4" /> Start Learning
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">
@@ -586,7 +588,7 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
                       variant="ghost"
                       onClick={() => sendUserMessage("Explain this more")}
                     >
-                      <UndoDot className="h-4 w-4" /> Need Help
+                      <HelpCircle className="h-4 w-4" /> Need Help
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-white font-semibold bg-neutral-900">

@@ -8,7 +8,7 @@ import { auth } from "@/lib/firebase"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoonStar, Sun, Settings, LogOut, LayoutDashboard } from "lucide-react"
+import { MoonStar, Sun, Settings, LogOut, Orbit, CircleUser } from "lucide-react"
 import {useTheme} from 'next-themes'
 import Link from "next/link"
 
@@ -57,20 +57,25 @@ export default function UserProfileBadge() {
                 align="end"
                 className="w-56 rounded-xl bg-white p-2 shadow-xl dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 animate-in slide-in-from-top-2"
             >
-                <DropdownMenuLabel className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-                        {user?.displayName || "User"}
-                    </span>
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                        {user?.email}
-                    </span>
+                <DropdownMenuLabel className="items-center justify-between">
+                    <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
+                            <div className="flex items-center gap-2">
+                            <CircleUser className="h-4 w-4 text-neutral-500"/>
+                            {user?.displayName || "User"}
+                            </div>
+                        </span>
+                        {/* <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                            {user?.email}
+                        </span> */}
+                    </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="my-1"/>
                 <DropdownMenuItem
                     onClick={handleDashboard}
                     className="flex items-center gap-2 rounded-lg p-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                    <LayoutDashboard className="h-4 w-4 text-neutral-500"/>
+                    <Orbit className="h-4 w-4 text-neutral-500"/>
                     <Link href="/dashboard">Your Skills</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem

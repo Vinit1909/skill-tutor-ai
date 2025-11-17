@@ -73,6 +73,7 @@
     "rehype-pretty-code": "^0.14.0",
     "remark-gfm": "^4.0.0",
     "remark-math": "^6.0.0",
+    "rough-notation": "^0.5.1",
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",

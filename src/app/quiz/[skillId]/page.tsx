@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { useAuthContext } from "@/context/authcontext"
 import { getSkillSpace, SkillSpaceData } from "@/lib/skillspace"
-import { BookOpenText, Dices, LayoutDashboard, Loader } from "lucide-react"
+import { BookOpen, Dices, Loader, Orbit } from "lucide-react"
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import QuizSection from "./quiz-section"
@@ -61,7 +61,7 @@ export default function QuizPage() {
               <BreadcrumbItem className="hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
                   <BreadcrumbLink href={`/learn/${skillId}`}>
                     <div className="flex gap-1 items-center">
-                      <BookOpenText className="h-4 w-4"/> Learn
+                      <BookOpen className="h-4 w-4"/> Learn
                     </div>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
@@ -72,7 +72,7 @@ export default function QuizPage() {
             <BreadcrumbList>
               <BreadcrumbItem className="hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
                 <BreadcrumbLink href="/dashboard">
-                  <div className="flex gap-1 items-center"><LayoutDashboard className="h-4 w-4"/> Your Skills</div>
+                  <div className="flex gap-1 items-center"><Orbit className="h-4 w-4"/> Your Skills</div>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />

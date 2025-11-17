@@ -126,7 +126,7 @@ export async function getSkillSpace(uid: string, docId: string): Promise<SkillSp
     }
 }
 
-function calculateSkillProgress(nodes: RoadmapNode[]): {value: number, max: number} {
+export function calculateSkillProgress(nodes: RoadmapNode[]): {value: number, max: number} {
     let value = 0
     let totalMax = 0
 

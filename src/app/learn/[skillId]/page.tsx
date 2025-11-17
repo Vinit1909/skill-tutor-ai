@@ -7,7 +7,7 @@ import { useEffect, useState } from "react"
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar"
-import { BookMarked, Dices, LayoutDashboard, Loader, Menu, MessageSquareX, WandSparkles } from "lucide-react"
+import { BookOpen, Dices, Loader, Menu, MessageSquareX, Orbit, WandSparkles } from "lucide-react"
 import Chat, { ChatRef } from "./chat"
 import OnboardingWizard from "@/components/learn-page/onboardingWizard"
 import { QuestionData } from "@/components/learn-page/question-card"
@@ -146,7 +146,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
           {/* The main content area */}
           <SidebarInset className="flex flex-col h-screen overflow-hidden">
             <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 bg-white z-10 dark:bg-neutral-800 px-2 sm:px-4 ">
-              <div className="flex items-center gap-2 px-3">
+            <div className="flex items-center gap-2 px-3">
                 <SidebarTrigger/>
                 <Separator orientation="vertical" className="mr-2 h-4" />
 
@@ -159,7 +159,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
                     <DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)]">
                         <DropdownMenuItem asChild>
                         <a href="/dashboard" className="flex gap-2">
-                            <LayoutDashboard className="h-4 w-4 text-neutral-500 dark:text-neutral-400" /> Your Skills
+                            <Orbit className="h-4 w-4 text-neutral-500 dark:text-neutral-400" /> Your Skills
                         </a>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
@@ -176,18 +176,18 @@ function LearnLayout({skillId}: {skillId?: string}) {
 
                 {/* breadcrumb */}
                 <Breadcrumb className="hidden md:flex">
-                  <BreadcrumbList>
+                <BreadcrumbList>
                     <BreadcrumbItem className="hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
-                      <BreadcrumbLink href="/dashboard">
-                          <div className="flex gap-1 place-items-center"><LayoutDashboard className="h-4 w-4"/>Your Skills</div>
-                      </BreadcrumbLink>
+                    <BreadcrumbLink href="/dashboard">
+                        <div className="flex gap-1 place-items-center"><Orbit className="h-4 w-4"/>Your Skills</div>
+                    </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator/>
                     <BreadcrumbItem>
                         <BreadcrumbPage className="hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-2 rounded-full">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <div className="flex gap-1 place-items-center"><BookMarked className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
+                                    <div className="flex gap-1 place-items-center"><BookOpen className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)]">
                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
@@ -202,20 +202,22 @@ function LearnLayout({skillId}: {skillId?: string}) {
                             </DropdownMenu>
                         </BreadcrumbPage>
                     </BreadcrumbItem>
-                  </BreadcrumbList>
+                </BreadcrumbList>
                 </Breadcrumb>
                 <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
                 <Breadcrumb className="hidden md:flex">
-                  <BreadcrumbList>
+                <BreadcrumbList>
                     <BreadcrumbItem className="hover:bg-muted hover:text-black p-2 rounded-full dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700">
-                      <BreadcrumbLink href={`/quiz/${skillId}`}>
-                          <div className="flex gap-1 place-items-center"><Dices className="h-4 w-4"/>Quiz</div>
-                      </BreadcrumbLink>
+                    <BreadcrumbLink href={`/quiz/${skillId}`}>
+                        <div className="flex gap-1 place-items-center"><Dices className="h-4 w-4"/>Quiz</div>
+                    </BreadcrumbLink>
                     </BreadcrumbItem>
-                  </BreadcrumbList>
+                </BreadcrumbList>
                 </Breadcrumb>
-              </div>
-              <div className="px-2 sm:px-4 ml-auto place-items-center"><UserProfileBadge/></div>
+            </div>
+            <div className="flex px-2 sm:px-4 ml-auto place-items-center">
+                <UserProfileBadge/>
+            </div>
             </header>
 
             {/* Chat interface */}
