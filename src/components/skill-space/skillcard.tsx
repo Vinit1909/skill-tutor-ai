@@ -38,7 +38,6 @@ interface SkillCardProps {
 export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
   const router = useRouter()
   const { user } = useAuthContext()
-  const [isHovered, setIsHovered] = useState(false)
   // Local name state so renaming reflects immediately without waiting for parent re-fetch
   const [localName, setLocalName] = useState(skill.name)
 
@@ -85,8 +84,6 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
   return (
     <Card
       className="w-64 h-38 overflow-hidden transition-all duration-300 ease-in-out hover:shadow-lg dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 dark:hover:shadow-xl"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <CardHeader className="pb-4 place-items-center">
         <div className="flex items-center justify-between w-full space-x-2">
