@@ -8,6 +8,9 @@ import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbP
 import { Separator } from "@/components/ui/separator"
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar"
 import { BookOpen, Dices, Loader, Menu, MessageSquareX, Orbit, WandSparkles } from "lucide-react"
+import { InlineEdit } from "@/components/ui/inline-edit"
+import { updateSkillSpace } from "@/lib/skillspace"
+import { toast } from "sonner"
 import Chat, { ChatRef } from "./chat"
 import OnboardingWizard from "@/components/learn-page/onboardingWizard"
 import { QuestionData } from "@/components/learn-page/question-card"
@@ -187,7 +190,21 @@ function LearnLayout({skillId}: {skillId?: string}) {
                         <BreadcrumbPage className="hover:cursor-pointer text-neutral-500 hover:bg-muted hover:text-black dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-700 p-2 rounded-full">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <div className="flex gap-1 place-items-center"><BookOpen className="h-4 w-4"/><span>Learn {skill?.name}</span></div>
+                                    <div className="flex gap-1 place-items-center">
+                                        <BookOpen className="h-4 w-4"/>
+                                        <span>Learn </span>
+                                        <InlineEdit
+                                            value={skill?.name || ""}
+                                            onSave={async (newName) => {
+                                                if (!user?.uid || !skillId) return
+                                                await updateSkillSpace(user.uid, skillId, { name: newName })
+                                                setSkill((prev) => prev ? { ...prev, name: newName } : prev)
+                                                toast.success(`Renamed to "${newName}"`)
+                                            }}
+                                            className="text-sm"
+                                            inputClassName="text-sm"
+                                        />
+                                    </div>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)]">
                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>

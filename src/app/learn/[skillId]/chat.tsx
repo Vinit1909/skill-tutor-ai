@@ -1,26 +1,59 @@
 "use client"
 
-import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from "react"
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+  memo,
+  useMemo,
+} from "react"
+import type { ToolInvocationResult } from "@/lib/progression"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { FaArrowUp } from "react-icons/fa"
 import { MarkdownRenderer } from "@/components/learn-page/markdownrenderer"
-import { getSkillSpace, NodeStatus, SkillSpaceData } from "@/lib/skillspace"
+import { getSkillSpace, NodeStatus, SkillSpaceData, updateNodeStatus } from "@/lib/skillspace"
 import { useAuthContext } from "@/context/authcontext"
-import { loadChatMessages, addChatMessage } from "@/lib/skillChat"
-import { updateNodeStatus } from "@/lib/skillspace"
-import { ChevronRight, CircleCheckBig, Globe, HelpCircle, Loader, Orbit, Play, PlusIcon} from "lucide-react"
+import { addChatMessage, loadChatMessages } from "@/lib/skillChat"
+import {
+  ChevronRight,
+  CircleCheckBig,
+  Globe,
+  HelpCircle,
+  Loader,
+  Orbit,
+  Play,
+  PlusIcon,
+} from "lucide-react"
 import { ICONS, COLORS } from "@/lib/constants"
 import { shuffleArray } from "@/lib/utils"
 import { QuestionCard, QuestionData } from "@/components/learn-page/question-card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TooltipProvider } from "@radix-ui/react-tooltip"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import LoadingBubble from "@/components/learn-page/ai-loading"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { doc, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
+import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore"
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+/** Simple chat message — no streaming metadata needed */
+interface Message {
+  id: string
+  role: "user" | "assistant"
+  content: string
+}
 
 interface RoadmapNode {
   id: string
@@ -35,13 +68,6 @@ interface RoadmapChild {
   status: NodeStatus
 }
 
-interface ChatMessage {
-  role: "user" | "assistant"
-  content: string
-  nodeId?: string
-  skillId?: string
-}
-
 export interface ChatRef {
   clearLocalChat: () => void
 }
@@ -51,47 +77,84 @@ interface ChatProps {
   questions?: QuestionData[]
 }
 
-interface ChatBubbleProps extends ChatMessage {
+interface ChatBubbleProps {
+  message: Message
   nodes: RoadmapNode[]
   isLatestAiResponse: boolean
+  activeNodeId: string | null
   setActiveNode: (nodeId: string | null) => void
   sendUserMessage: (text: string) => void
+  skillId?: string
 }
 
-const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions = [] }, ref) {
+// ─── Chat Component ───────────────────────────────────────────────────────────
+
+const Chat = forwardRef<ChatRef, ChatProps>(function Chat(
+  { skillId, questions = [] },
+  ref
+) {
   const { user } = useAuthContext()
+  const { toast } = useToast()
+
   const [skill, setSkill] = useState<SkillSpaceData | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [chatLoading, setChatLoading] = useState(true)
-  const [userInput, setUserInput] = useState("")
   const [activeNode, setActiveNode] = useState<string | null>(null)
-  const [isAiResponding, setIsAiResponding] = useState(false)
+  const [chatLoading, setChatLoading] = useState(true)
+  const [randomCards, setRandomCards] = useState<
+    { question: QuestionData; Icon: React.ComponentType; iconColor: string }[]
+  >([])
+
+  // Pagination state
+  const [hasMore, setHasMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const oldestCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null)
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [randomCards, setRandomCards] = useState<{ question: QuestionData; Icon: React.ComponentType; iconColor: string }[]>([])
+  // Ref to always have latest activeNode when sending messages
+  const activeNodeRef = useRef<string | null>(null)
+  useEffect(() => {
+    activeNodeRef.current = activeNode
+  }, [activeNode])
 
-  const isChatEmpty = useCallback(() => {
-    return messages.length === 0
-  }, [messages.length])
+  // ─── Chat state (plain fetch — no streaming library needed) ──────────────
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState("")
+  const [isAiResponding, setIsAiResponding] = useState(false)
+
+  // Expose clearLocalChat to parent via ref
+  useImperativeHandle(ref, () => ({
+    clearLocalChat() {
+      setMessages([])
+    },
+  }))
+
+  // ─── Skill & Active Node Loading ──────────────────────────────────────────
 
   const fetchSkillAndActiveNode = useCallback(async () => {
-    if (user?.uid && skillId) {
-      const skillData = await getSkillSpace(user.uid, skillId)
-      if (skillData) {
-        setSkill(skillData)
-        const storedActiveNode = skillData.activeNodeId
-        if (storedActiveNode && skillData.roadmapJSON?.nodes.some((n: RoadmapNode) => n.id === storedActiveNode || n.children?.some((c: RoadmapChild) => c.id === storedActiveNode))) {
-          setActiveNode(storedActiveNode)
-          console.log("Fetched stored activeNode:", storedActiveNode)
-        } else if (skillData.roadmapJSON?.nodes?.length) {
-          const firstParent = skillData.roadmapJSON.nodes[0]
-          const firstIncompleteChild = firstParent.children?.find((c: RoadmapChild) => c.status !== "COMPLETED") || firstParent.children?.[0]
-          const childId = firstIncompleteChild?.id || firstParent.id
-          setActiveNode(childId)
-          console.log("Fetched default activeNode:", childId)
-          await updateDoc(doc(db, "users", user.uid, "skillspaces", skillId), { activeNodeId: childId })
-        }
-      }
+    if (!user?.uid || !skillId) return
+    const skillData = await getSkillSpace(user.uid, skillId)
+    if (!skillData) return
+    setSkill(skillData)
+
+    const stored = skillData.activeNodeId
+    if (
+      stored &&
+      skillData.roadmapJSON?.nodes.some(
+        (n: RoadmapNode) =>
+          n.id === stored || n.children?.some((c: RoadmapChild) => c.id === stored)
+      )
+    ) {
+      setActiveNode(stored)
+    } else if (skillData.roadmapJSON?.nodes?.length) {
+      const firstParent = skillData.roadmapJSON.nodes[0]
+      const firstIncomplete =
+        firstParent.children?.find((c: RoadmapChild) => c.status !== "COMPLETED") ||
+        firstParent.children?.[0]
+      const childId = firstIncomplete?.id || firstParent.id
+      setActiveNode(childId)
+      await updateDoc(doc(db, "users", user.uid, "skillspaces", skillId), {
+        activeNodeId: childId,
+      })
     }
   }, [user?.uid, skillId])
 
@@ -99,37 +162,24 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
     fetchSkillAndActiveNode()
   }, [fetchSkillAndActiveNode])
 
-  useImperativeHandle(ref, () => ({
-    clearLocalChat() {
-      setMessages([])
-    },
-  }))
-
-  const fetchSkillSpace = useCallback(async () => {
-    if (!user?.uid || !skillId) return
-    try {
-      const doc = await getSkillSpace(user.uid, skillId)
-      if (doc) setSkill(doc)
-    } catch (err) {
-      console.error("Error fetching skill doc:", err)
-    }
-  }, [user?.uid, skillId])
-
-  useEffect(() => {
-    fetchSkillSpace()
-  }, [fetchSkillSpace])
+  // ─── Initial Chat Load (paginated) ───────────────────────────────────────
 
   const loadMessages = useCallback(async () => {
     if (!user?.uid || !skillId) return
     try {
-      const msgs = await loadChatMessages(user.uid, skillId)
-      const loaded = msgs.map((m) => ({
+      const { messages: loaded, oldestCursor, hasMore: more } = await loadChatMessages(
+        user.uid,
+        skillId
+      )
+      oldestCursorRef.current = oldestCursor
+
+      const aiMessages: Message[] = loaded.map((m, i) => ({
+        id: m.id || `init-${i}`,
         role: m.role as "user" | "assistant",
         content: m.content,
-        nodeId: m.nodeId,
-        skillId: m.skillId,
       }))
-      setMessages(loaded)
+      setMessages(aiMessages)
+      setHasMore(more)
     } catch (err) {
       console.error("Error loading chat messages:", err)
     } finally {
@@ -141,189 +191,69 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
     loadMessages()
   }, [loadMessages])
 
+  // ─── Load More (scroll to top) ────────────────────────────────────────────
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!user?.uid || !skillId || !hasMore || isLoadingMore || !oldestCursorRef.current)
+      return
+
+    setIsLoadingMore(true)
+    try {
+      const {
+        messages: older,
+        oldestCursor: newCursor,
+        hasMore: moreLeft,
+      } = await loadChatMessages(user.uid, skillId, oldestCursorRef.current)
+
+      oldestCursorRef.current = newCursor
+      setHasMore(moreLeft)
+
+      const olderAiMessages: Message[] = older.map((m, i) => ({
+        id: m.id || `older-${i}`,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }))
+
+      // Prepend older messages to the front of the list
+      setMessages((prev) => [...olderAiMessages, ...prev])
+    } catch (err) {
+      console.error("Error loading more messages:", err)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [user?.uid, skillId, hasMore, isLoadingMore, setMessages])
+
+  // ─── Random Question Cards ────────────────────────────────────────────────
+
   useEffect(() => {
     if (chatLoading) return
-
-    if (isChatEmpty() && questions.length > 0) {
-      const shuffledQuestions = shuffleArray(questions).slice(0, 4)
-      const iconShuffled = shuffleArray(ICONS).slice(0, 4)
-      const colorShuffled = shuffleArray(COLORS).slice(0, 4)
-      setRandomCards(shuffledQuestions.map((q, i) => ({
-        question: q,
-        Icon: iconShuffled[i],
-        iconColor: colorShuffled[i],
-      })))
+    if (messages.length === 0 && questions.length > 0) {
+      const shuffledQ = shuffleArray(questions).slice(0, 4)
+      const shuffledI = shuffleArray(ICONS).slice(0, 4)
+      const shuffledC = shuffleArray(COLORS).slice(0, 4)
+      setRandomCards(
+        shuffledQ.map((q, i) => ({
+          question: q,
+          Icon: shuffledI[i],
+          iconColor: shuffledC[i],
+        }))
+      )
     } else {
       setRandomCards([])
     }
-  }, [chatLoading, questions, isChatEmpty])
+  }, [chatLoading, questions, messages.length])
+
+  // ─── Auto-scroll to bottom on new messages ────────────────────────────────
+  // Fires when a complete message is added or the typing indicator appears/disappears.
+  // No RAF throttle needed — updates are infrequent (once per message, not per token).
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages])
+  }, [messages, isAiResponding])
 
-  const findNode = (nodes: RoadmapNode[], nodeId: string | null): RoadmapNode | RoadmapChild | null => {
-    if (!nodeId) return null
-    for (const node of nodes) {
-      if (node.id === nodeId) return node
-      if (node.children) {
-        const child = node.children.find((c: RoadmapChild) => c.id === nodeId)
-        if (child) return child
-      }
-    }
-    return null
-  }
-
-  // async function sendUserMessage(text: string) {
-  //   if (!text.trim() || !skill) return
-
-  //   const userMsg: ChatMessage = { role: "user", content: text, nodeId: activeNode ?? undefined }
-  //   setMessages((prev) => [...prev, userMsg])
-  //   setIsAiResponding(true)
-
-  //   if (user?.uid && skillId) {
-  //     await addChatMessage(user.uid, skillId, "user", text)
-  //   }
-
-  //   const activeNodeData = findNode(skill.roadmapJSON?.nodes || [], activeNode)
-  //   const systemMessage: ChatMessage = {
-  //     role: "assistant",
-  //     content: buildSystemPrompt(skill, activeNodeData),
-  //     nodeId: activeNode ?? "",
-  //     skillId,
-  //   }
-
-  //   const finalMessages = [systemMessage, ...messages, userMsg]
-
-  //   try {
-  //     const response = await fetch("/api/llm", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ messages: finalMessages }),
-  //     })
-  //     if (!response.ok) throw new Error(`LLM call failed: ${response.status}`)
-
-  //     const data = await response.json()
-  //     if (data.error) throw new Error(data.error)
-
-  //     const aiContent = data.content ?? "No response content."
-  //     const aiMsg: ChatMessage = {
-  //       role: "assistant",
-  //       content: aiContent,
-  //       nodeId: activeNode ?? "",
-  //       skillId,
-  //     }
-  //     setMessages((prev) => [...prev, aiMsg])
-
-  //     if (user?.uid && skillId) {
-  //       await addChatMessage(user.uid, skillId, "assistant", aiContent)
-  //     }
-  //   } catch (err: unknown) {
-  //     console.error("Error calling LLM:", err)
-  //     const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
-  //     const errorMsg: ChatMessage = { role: "assistant", content: `Error: ${errorMessage}` }
-  //     setMessages((prev) => [...prev, errorMsg])
-  //     if (user?.uid && skillId) {
-  //       await addChatMessage(user.uid, skillId, "assistant", errorMsg.content)
-  //     }
-  //   } finally {
-  //     setIsAiResponding(false)
-  //   }
-  // }
-
-  async function sendUserMessage(text: string) {
-    if (!text.trim() || !skill) return
-
-    const userMsg: ChatMessage = { role: "user", content: text, nodeId: activeNode ?? undefined }
-    setMessages((prev) => [...prev, userMsg])
-    setIsAiResponding(true)
-
-    if (user?.uid && skillId) {
-      await addChatMessage(user.uid, skillId, "user", text)
-    }
-
-    const activeNodeData = findNode(skill.roadmapJSON?.nodes || [], activeNode)
-    const systemMessage: ChatMessage = {
-      role: "assistant",
-      content: buildSystemPrompt(skill, activeNodeData),
-      nodeId: activeNode ?? "",
-      skillId,
-    }
-
-    const finalMessages = [systemMessage, ...messages, userMsg]
-
-    let response: Response | undefined;
-    try {
-      response = await fetch("/api/llm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: finalMessages }),
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP ${response.status}`)
-      }
-
-      const data = await response.json()
-      if (data.error) throw new Error(data.error)
-
-      const aiContent = data.content ?? "No response content."
-      const aiMsg: ChatMessage = {
-        role: "assistant",
-        content: aiContent,
-        nodeId: activeNode ?? "",
-        skillId,
-      }
-
-      // Log provider info (but don't show to user unless debugging)
-      if (data.switched) {
-        console.log(`🔄 AI switched to ${data.provider} for better reliability`)
-        // Optionally show a subtle success message
-        // toast({ title: "Switched to backup AI for better performance", duration: 2000 })
-      } else {
-        console.log(`💬 AI response from ${data.provider}`)
-      }
-
-      setMessages((prev) => [...prev, aiMsg])
-
-      if (user?.uid && skillId) {
-        await addChatMessage(user.uid, skillId, "assistant", aiContent)
-      }
-
-    } catch (err: unknown) {
-      console.error("Error calling LLM:", err)
-      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
-      
-      // Only show error if ALL providers truly failed
-      let userFriendlyMessage: string
-      
-      if (errorMessage.includes("All") && errorMessage.includes("providers failed")) {
-        userFriendlyMessage = "I'm experiencing technical difficulties with all AI services right now. Please try again in a few minutes, or contact support if this persists."
-      } else if (errorMessage.includes("No LLM providers available")) {
-        userFriendlyMessage = "AI services are temporarily offline for maintenance. Please try again shortly."
-      } else if (response && response.status >= 500) {
-        userFriendlyMessage = "There's a temporary server issue. Please try your question again."
-      } else {
-        // For other errors, encourage retry without being alarming
-        userFriendlyMessage = "I had trouble processing that. Could you please try asking your question again?"
-      }
-      
-      const errorMsg: ChatMessage = { 
-        role: "assistant", 
-        content: userFriendlyMessage
-      }
-      
-      setMessages((prev) => [...prev, errorMsg])
-      if (user?.uid && skillId) {
-        await addChatMessage(user.uid, skillId, "assistant", errorMsg.content)
-      }
-    } finally {
-      setIsAiResponding(false)
-    }
-  }
+  // ─── Textarea auto-height ─────────────────────────────────────────────────
 
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current
@@ -335,20 +265,183 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
 
   useEffect(() => {
     adjustTextareaHeight()
-  }, [userInput])
+  }, [input])
 
-  async function handleSend() {
-    if (!userInput.trim()) return
-    const text = userInput
-    setUserInput("")
+  // ─── Send Message ─────────────────────────────────────────────────────────
+
+  const sendUserMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || !user?.uid || !skillId || isAiResponding) return
+
+      // Optimistically add user message to local state
+      const userMsg: Message = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: text,
+      }
+      setMessages((prev) => [...prev, userMsg])
+      setIsAiResponding(true)
+
+      // Persist user message to Firestore (fire-and-forget)
+      addChatMessage(user.uid, skillId, "user", text, activeNodeRef.current ?? undefined).catch(
+        (err) => console.error("Failed to persist user message:", err)
+      )
+
+      // Build clean message history (only role + content — no streaming metadata)
+      const history = [...messages, userMsg].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }))
+
+      // Build shared request body — used by both parallel fetches
+      const skillContext = skill
+        ? {
+            name: skill.name,
+            roadmapContext: skill.roadmapContext,
+            roadmapJSON: skill.roadmapJSON,
+          }
+        : undefined
+
+      const requestBody = JSON.stringify({
+        messages: history.slice(-10), // fixed token ceiling
+        skillId,
+        uid: user.uid,
+        activeNodeId: activeNodeRef.current,
+        skillContext,
+      })
+
+      // ── Fire both fetches simultaneously ──────────────────────────────────
+      // chatFetch  → text only (no tools) → drives UI — user waits for this
+      // progressFetch → tools only (no text) → updates sidebar in background
+      const chatFetch = fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
+      })
+      const progressFetch = fetch("/api/chat/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
+      })
+
+      try {
+        // ── Critical path: wait for text response ──────────────────────────
+        const res = await chatFetch
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({ error: "Unknown error" }))
+          throw new Error(errBody.error || `HTTP ${res.status}`)
+        }
+
+        const data: { content: string } = await res.json()
+
+        // Add AI response to local state
+        const aiMsg: Message = {
+          id: `ai-${Date.now()}`,
+          role: "assistant",
+          content: data.content,
+        }
+        setMessages((prev) => [...prev, aiMsg])
+
+        // Persist AI response to Firestore (fire-and-forget)
+        addChatMessage(user.uid, skillId, "assistant", data.content).catch((err) =>
+          console.error("Failed to persist AI message:", err)
+        )
+      } catch (err) {
+        console.error("Chat error:", err)
+        toast({
+          title: "Connection issue",
+          description:
+            err instanceof Error
+              ? err.message
+              : "Couldn't reach the AI. Please try again.",
+          variant: "destructive",
+          duration: 4000,
+        })
+        // Remove the optimistic user message on error
+        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id))
+      } finally {
+        // ── Unblock input as soon as text arrives — don't wait for tools ──
+        setIsAiResponding(false)
+      }
+
+      // ── Background path: handle progression tools after UI is unblocked ──
+      // Firestore writes happen here (client-side, authenticated) because
+      // server-side writes fail under Firestore security rules that require auth.
+      progressFetch
+        .then((r) => r.json())
+        .then(async (progressData: { toolInvocations?: ToolInvocationResult[] }) => {
+          for (const invocation of progressData.toolInvocations || []) {
+            if (invocation.toolName === "markNodeInProgress") {
+              const { nodeId } = invocation.result as { nodeId: string }
+              try {
+                await updateNodeStatus(user.uid, skillId, nodeId, "IN_PROGRESS")
+                setActiveNode(nodeId)
+                console.log(`📚 Node "${nodeId}" marked IN_PROGRESS by AI`)
+              } catch (err) {
+                console.error("Failed to mark node in progress:", err)
+              }
+            } else if (invocation.toolName === "markNodeComplete") {
+              const { nodeId } = invocation.result as { nodeId: string }
+              try {
+                const result = await updateNodeStatus(user.uid, skillId, nodeId, "COMPLETED")
+                toast({
+                  title: "Topic marked complete ✓",
+                  description: "Great work! Keep it up.",
+                  duration: 3000,
+                })
+                if (result.activeNodeId) setActiveNode(result.activeNodeId)
+              } catch (err) {
+                console.error("Failed to mark node complete:", err)
+              }
+            } else if (invocation.toolName === "suggestNextNode") {
+              const { nextNodeId } = invocation.result as { nextNodeId: string }
+              try {
+                await updateNodeStatus(user.uid, skillId, nextNodeId, "IN_PROGRESS")
+                setActiveNode(nextNodeId)
+              } catch (err) {
+                console.error("Failed to start next node:", err)
+              }
+            }
+          }
+        })
+        .catch((err) => console.error("⚠️ Progress fetch failed (non-critical):", err))
+    },
+    [user?.uid, skillId, skill, messages, isAiResponding, toast]
+  )
+
+  const handleSend = useCallback(async () => {
+    if (!input.trim()) return
+    const text = input
+    setInput("")
     await sendUserMessage(text)
-  }
+  }, [input, setInput, sendUserMessage])
 
-  function handleQuestionCardClick(questionText: string) {
-    sendUserMessage(questionText)
-  }
+  const handleQuestionCardClick = useCallback(
+    (questionText: string) => {
+      sendUserMessage(questionText)
+    },
+    [sendUserMessage]
+  )
 
-  if (chatLoading && isChatEmpty()) {
+  // ─── Derived state (must be before any early returns per Rules of Hooks) ────
+
+  // All messages in state are complete — no partial streaming content to hide.
+  // visibleMessages is just an alias; the typing indicator (isAiResponding) is
+  // shown separately below the message list.
+  const latestAiMessageIndex = useMemo(
+    () =>
+      messages.reduce(
+        (maxIdx: number, msg, idx) =>
+          msg.role === "assistant" && idx > maxIdx ? idx : maxIdx,
+        -1
+      ),
+    [messages]
+  )
+
+  // ─── Loading state ────────────────────────────────────────────────────────
+
+  if (chatLoading) {
     return (
       <div className="flex items-center justify-center fixed inset-0">
         <div className="text-md text-neutral-500 dark:text-neutral-400">
@@ -361,14 +454,17 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
     )
   }
 
-  const latestAiMessageIndex = messages.reduce((maxIdx, msg, idx) => 
-    msg.role === "assistant" && idx > maxIdx ? idx : maxIdx, -1)
+  const isChatEmpty = messages.length === 0
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <ScrollArea className="flex-1 px-4 sm:px-6 pl-3 space-y-2 scroll-smooth w-full" ref={scrollRef} style={{ height: "100%" }}>
+      <ScrollArea
+        className="flex-1 px-4 sm:px-6 pl-3 space-y-2 scroll-smooth w-full"
+        ref={scrollRef}
+        style={{ height: "100%" }}
+      >
         <div className="flex h-full items-center justify-center">
-          {isChatEmpty() ? (
+          {isChatEmpty ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 place-items-center my-10 sm:my-40 w-full max-w-[95%] sm:max-w-3xl mx-auto lg:px-20 overflow-hidden">
               {randomCards.map(({ question, Icon, iconColor }, idx) => (
                 <QuestionCard
@@ -382,20 +478,39 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
             </div>
           ) : (
             <div className="flex flex-col gap-2 w-full max-w-[95%] sm:max-w-3xl mx-auto py-4">
+              {/* Load more button */}
+              {hasMore && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadMoreMessages}
+                    disabled={isLoadingMore}
+                    className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                  >
+                    {isLoadingMore ? (
+                      <Loader className="h-3 w-3 animate-spin mr-1" />
+                    ) : null}
+                    Load earlier messages
+                  </Button>
+                </div>
+              )}
+
               {messages.map((msg, i) => (
                 <ChatBubble
-                  key={i}
-                  role={msg.role}
-                  content={msg.content}
-                  nodeId={activeNode ?? undefined}
-                  skillId={skillId}
+                  key={msg.id || i}
+                  message={msg}
                   nodes={skill?.roadmapJSON?.nodes || []}
-                  isLatestAiResponse={i === latestAiMessageIndex}
+                  isLatestAiResponse={i === latestAiMessageIndex && !isAiResponding}
+                  activeNodeId={activeNode}
                   setActiveNode={setActiveNode}
                   sendUserMessage={sendUserMessage}
+                  skillId={skillId}
                 />
               ))}
-              {isAiResponding && <LoadingBubble />}
+
+              {/* AI skeleton — shown while waiting for the response */}
+              {isAiResponding && <AiSkeleton />}
             </div>
           )}
         </div>
@@ -404,8 +519,8 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
       <div className="border border-r bg-white dark:bg-[hsl(0,0%,18%)] dark:border-neutral-700 rounded-3xl p-2 sm:p-2 max-w-[95%] sm:max-w-3xl mx-auto w-full mb-4 sm:mb-8">
         <Textarea
           ref={textareaRef}
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="Type your question..."
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -427,14 +542,18 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
             <Button
               variant="outline"
               className="rounded-full p-2.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[hsl(0,0%,18%)] hover:bg-gray-100 dark:hover:bg-neutral-800"
-              onClick={() => setUserInput("")}
+              onClick={() => setInput("")}
             >
               <Globe className="h-4 w-4" />
               Search
             </Button>
           </div>
           <div className="flex justify-end gap-2 mb-2 mr-2">
-            <Button className="rounded-full p-2.5" onClick={handleSend}>
+            <Button
+              className="rounded-full p-2.5"
+              onClick={handleSend}
+              disabled={isAiResponding || !input.trim()}
+            >
               <FaArrowUp className="h-4 w-4" />
             </Button>
           </div>
@@ -446,59 +565,59 @@ const Chat = forwardRef<ChatRef, ChatProps>(function Chat({ skillId, questions =
 
 export default Chat
 
-function buildSystemPrompt(skill: SkillSpaceData | null, activeNode: RoadmapNode | RoadmapChild | null) {
-  if (!skill) {
-    return `You are a fun, engaging tutor. The skill is not fully loaded yet, so keep it generic. Add slight humor but remain helpful.`
-  }
+// ─── AiSkeleton ──────────────────────────────────────────────────────────────
 
-  const level = skill.roadmapContext?.level || "Unknown"
-  const goals = skill.roadmapContext?.goals || "No specific goals"
-  const priorKnowledge = skill.roadmapContext?.priorKnowledge || "Not mentioned"
-  const skillName = skill.name || "Unnamed Skill"
-  const roadmapJSON = JSON.stringify(skill.roadmapJSON || { title: "", nodes: [] })
-  const activeNodeTitle = activeNode?.title || "unknown"
-  const activeNodeStatus = activeNode?.status || "unknown"
-
-  return `
-    You are a fun, enthusiastic, motivating, engaging tutor.
-    Your domain is ${skillName}.
-    The user's current level is ${level}.
-    Their goals: ${goals}.
-    They have prior knowledge: ${priorKnowledge}.
-
-    We have a roadmap in JSON:
-    ${roadmapJSON}
-
-    Current node: "${activeNodeTitle}" (ID: ${skill.activeNodeId || "unknown"}, Status: ${activeNodeStatus}).
-    Focus on guiding based on this node, suggesting next steps if it's NOT_STARTED or IN_PROGRESS.
-    Provide detailed explanations and examples relevant to "${activeNodeTitle}" when asked.
-    Keep it systematic, humorous, and encouraging, staying within the roadmap.
-    If the user asks about an unrelated topic, politely redirect to "${activeNodeTitle}" or suggest using the dropdown to switch nodes.
-  `
+function AiSkeleton() {
+  return (
+    <div className="flex items-start w-full gap-4">
+      <Orbit className="flex-shrink-0 mr-2 mt-2 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
+      <p className="mt-2.5 text-sm text-neutral-400 dark:text-neutral-500 animate-pulse">
+        Thinking…
+      </p>
+    </div>
+  )
 }
 
-function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse, setActiveNode, sendUserMessage }: ChatBubbleProps) {
+// ─── ChatBubble ───────────────────────────────────────────────────────────────
+
+const ChatBubble = memo(function ChatBubble({
+  message,
+  nodes,
+  isLatestAiResponse,
+  activeNodeId,
+  setActiveNode,
+  sendUserMessage,
+  skillId,
+}: ChatBubbleProps) {
   const { user } = useAuthContext()
   const { toast } = useToast()
 
+  const { role, content } = message
+
   const handleStatusUpdate = async (newStatus: NodeStatus) => {
-    if (!user?.uid || !skillId || !nodeId) {
-      console.error("Missing required params:", { uid: user?.uid, skillId, nodeId })
+    if (!user?.uid || !skillId || !activeNodeId) {
+      console.error("Missing required params:", { uid: user?.uid, skillId, activeNodeId })
       return
     }
     try {
-      console.log("Updating status:", { uid: user.uid, skillId, nodeId, newStatus })
-      await updateNodeStatus(user.uid, skillId, nodeId, newStatus)
+      await updateNodeStatus(user.uid, skillId, activeNodeId, newStatus)
       toast({
         title: "Progress updated",
-        description: `Node ${nodeId} marked as ${newStatus.toLowerCase().replace("_", " ")}`,
+        description: `Topic marked as ${newStatus.toLowerCase().replace("_", " ")}`,
         duration: 3000,
       })
 
-      const parentNode = nodes.find((n: RoadmapNode) => n.children?.some((c: RoadmapChild) => c.id === nodeId))
-      if (parentNode && newStatus === "COMPLETED") {
-        const nextChild = parentNode.children?.find((c: RoadmapChild) => c.status !== "COMPLETED")
-        setActiveNode(nextChild?.id || null)
+      // Auto-advance to next incomplete node on completion
+      if (newStatus === "COMPLETED") {
+        const parentNode = nodes.find((n: RoadmapNode) =>
+          n.children?.some((c: RoadmapChild) => c.id === activeNodeId)
+        )
+        if (parentNode && parentNode.children) {
+          const nextChild = parentNode.children.find(
+            (c: RoadmapChild) => c.status !== "COMPLETED"
+          )
+          setActiveNode(nextChild?.id || null)
+        }
       }
     } catch (err) {
       console.error("Error updating status:", err)
@@ -508,8 +627,10 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
   const handleNodeSelect = async (selectedNodeId: string) => {
     setActiveNode(selectedNodeId)
     if (user?.uid && skillId) {
-      await updateDoc(doc(db, "users", user.uid, "skillspaces", skillId), { activeNodeId: selectedNodeId })
-    } 
+      await updateDoc(doc(db, "users", user.uid, "skillspaces", skillId), {
+        activeNodeId: selectedNodeId,
+      })
+    }
   }
 
   if (role === "assistant") {
@@ -517,37 +638,61 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
       <div className="flex items-start w-full rounded-xl gap-4">
         <Orbit className="flex-shrink-0 mr-2 mt-2 h-8 w-8 rounded-full p-1 overflow-visible border border-neutral-300 dark:border-neutral-600 text-[#6c63ff] dark:text-[#7a83ff]" />
         <div className="flex flex-col mb-4 w-full">
+          {/*
+           * During streaming: render raw text with whitespace-pre-wrap.
+           * Heavy plugins (rehypeMathjax, remarkMath, remarkGfm) run on every token
+           * which causes main-thread jank. Switch to full MarkdownRenderer only
+           * after the message is complete — same approach used by ChatGPT/Claude.ai.
+           */}
           <div className="flex-1 text-neutral-900 dark:text-white text-sm break-words overflow-x-auto">
             <MarkdownRenderer content={content} />
           </div>
-          {nodeId && isLatestAiResponse && (
+          {activeNodeId && isLatestAiResponse && (
             <div className="flex flex-wrap gap-2 sm:gap-4 items-center mt-1 -ml-2 px-2 sm:px-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex gap-1 text-neutral-500 dark:text-neutral-400 hover:dark:text-white p-2 rounded-full hover:bg-muted dark:hover:bg-neutral-700">
+                  <Button
+                    variant="ghost"
+                    className="flex gap-1 text-neutral-500 dark:text-neutral-400 hover:dark:text-white p-2 rounded-full hover:bg-muted dark:hover:bg-neutral-700"
+                  >
                     <ChevronRight className="h-4 w-4" />
-                    {nodes.find((n: RoadmapNode) => n.id === nodeId || n.children?.some((c: { id: string }) => c.id === nodeId))?.children?.find((c: { id: string }) => c.id === nodeId)?.title ||
-                      nodes.find((n: RoadmapNode) => n.id === nodeId)?.title ||
+                    {nodes
+                      .find(
+                        (n: RoadmapNode) =>
+                          n.id === activeNodeId ||
+                          n.children?.some((c: { id: string }) => c.id === activeNodeId)
+                      )
+                      ?.children?.find((c: { id: string }) => c.id === activeNodeId)
+                      ?.title ||
+                      nodes.find((n: RoadmapNode) => n.id === activeNodeId)?.title ||
                       "Select Topic"}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="dark:bg-[hsl(0,0%,18%)] max-h-60 overflow-y-auto custom-scrollbar">
                   {nodes.map((parentNode: RoadmapNode, idx: number) => (
                     <React.Fragment key={parentNode.id}>
-                      {parentNode.children && parentNode.children.map((child: RoadmapChild) => (
-                        <DropdownMenuItem
-                          key={child.id}
-                          onClick={() => handleNodeSelect(child.id)}
-                          className={child.id === nodeId ? "bg-neutral-100 dark:bg-neutral-700" : ""}
-                        >
-                          {child.title}
-                        </DropdownMenuItem>
-                      ))}
-                      {idx < nodes.length - 1 && <DropdownMenuSeparator className="my-1" />}
+                      {parentNode.children &&
+                        parentNode.children.map((child: RoadmapChild) => (
+                          <DropdownMenuItem
+                            key={child.id}
+                            onClick={() => handleNodeSelect(child.id)}
+                            className={
+                              child.id === activeNodeId
+                                ? "bg-neutral-100 dark:bg-neutral-700"
+                                : ""
+                            }
+                          >
+                            {child.title}
+                          </DropdownMenuItem>
+                        ))}
+                      {idx < nodes.length - 1 && (
+                        <DropdownMenuSeparator className="my-1" />
+                      )}
                     </React.Fragment>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -564,6 +709,7 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -580,6 +726,7 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -601,13 +748,13 @@ function ChatBubble({ role, content, nodeId, skillId, nodes, isLatestAiResponse,
         </div>
       </div>
     )
-  } else {
-    return (
-      <div className="flex justify-end">
-        <div className="bg-neutral-100 dark:bg-[hsl(0,0%,20%)] text-neutral-900 dark:text-white text-sm p-3 rounded-3xl max-w-xl mb-4 break-words overflow-hidden">
-          {content}
-        </div>
-      </div>
-    )
   }
-}
+
+  return (
+    <div className="flex justify-end">
+      <div className="bg-neutral-100 dark:bg-[hsl(0,0%,20%)] text-neutral-900 dark:text-white text-sm p-3 rounded-3xl max-w-xl mb-4 break-words overflow-hidden">
+        {content}
+      </div>
+    </div>
+  )
+})
