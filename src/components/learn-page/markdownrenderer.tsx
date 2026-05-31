@@ -1,14 +1,20 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
-import ReactMarkdown from "react-markdown"
+import { useState, useEffect, useMemo } from "react"
+import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import rehypeMathjax from "rehype-mathjax"
 import { Highlight, themes } from "prism-react-renderer"
 import { ClipboardCheck, Copy } from "lucide-react"
 import { useTheme } from "next-themes"
+
+// Shared prop type for markdown component overrides.
+// Avoids 18 individual implicit-any errors in function parameters.
+// No index signature — react-markdown's element props don't declare one, and
+// TypeScript contravariance requires the types to be compatible.
+type MDProps = { children?: React.ReactNode; className?: string }
 
 interface CodeProps extends React.HTMLAttributes<HTMLPreElement> {
     inline?: boolean
@@ -28,17 +34,11 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     setMounted(true)
   }, [])
 
-  if (!mounted) {
-    return null
-  }
-
   const isDarkMode = theme === "dark"
 
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeMathjax]}
-      components={{
+  // Memoised so ReactMarkdown doesn't rebuild its internal component tree
+  // on every parent re-render. The object only changes when the theme flips.
+  const markdownComponents = useMemo((): Components => ({
         code({ inline, className, children, ...props }: CodeProps) {
           const match = /language-(\w+)/.exec(className || "")
           const isCodeBlock = match && !inline
@@ -65,7 +65,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             )
           }
         },
-        div({ className, children, ...props }) {
+        div({ className, children, ...props }: MDProps) {
             if (className?.includes("math-display")) {
               return (
                 <div style={{ overflowX: "auto" }}>
@@ -77,58 +77,58 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             }
             return <div {...props}>{children}</div>
         },
-        span({ className, children, ...props }) {
+        span({ className, children, ...props }: MDProps) {
             if (className?.includes("math-inline")) {
                 return <span className="math-inline" {...props}>{children}</span>
             }
             return <span {...props}>{children}</span>
         },
-        h1: ({ children, ...props }) => (
+        h1: ({ children, ...props }: MDProps) => (
           <h1 className="text-2xl font-bold mt-6 mb-4" {...props}>
             {children}
           </h1>
         ),
-        h2: ({ children, ...props }) => (
+        h2: ({ children, ...props }: MDProps) => (
           <h2 className="text-xl font-semibold mt-5 mb-3" {...props}>
             {children}
           </h2>
         ),
-        h3: ({ children, ...props }) => (
+        h3: ({ children, ...props }: MDProps) => (
           <h3 className="text-lg font-semibold mt-4 mb-2" {...props}>
             {children}
           </h3>
         ),
-        h4: ({ children, ...props }) => (
+        h4: ({ children, ...props }: MDProps) => (
           <h4 className="text-base font-medium mt-3 mb-2" {...props}>
             {children}
           </h4>
         ),
-        h5: ({ children, ...props }) => (
+        h5: ({ children, ...props }: MDProps) => (
           <h5 className="text-sm font-medium mt-2 mb-1" {...props}>
             {children}
           </h5>
         ),
-        h6: ({ children, ...props }) => (
+        h6: ({ children, ...props }: MDProps) => (
           <h6 className="text-xs font-medium mt-2 mb-1" {...props}>
             {children}
           </h6>
         ),
-        ul: ({ children, ...props }) => (
+        ul: ({ children, ...props }: MDProps) => (
           <ul className="my-3 list-disc list-inside ml-6" {...props}>
             {children}
           </ul>
         ),
-        ol: ({ children, ...props }) => (
+        ol: ({ children, ...props }: MDProps) => (
           <ol className="my-3 list-decimal list-inside ml-6" {...props}>
             {children}
           </ol>
         ),
-        li: ({ children, ...props }) => (
+        li: ({ children, ...props }: MDProps) => (
           <li className="my-2 leading-relaxed" {...props}>
             {children}
           </li>
         ),
-        blockquote: ({ children, ...props }) => (
+        blockquote: ({ children, ...props }: MDProps) => (
           <blockquote
             className={`border-l-4 pl-4 italic my-4 ${isDarkMode ? "border-neutral-600" : "border-neutral-300"}`}
             {...props}
@@ -136,8 +136,8 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             {children}
           </blockquote>
         ),
-        hr: ({ ...props }) => <hr className={isDarkMode ? "border-neutral-600" : "border-neutral-300"} {...props} />,
-        table: ({ children, ...props }) => (
+        hr: ({ ...props }: MDProps) => <hr className={isDarkMode ? "border-neutral-600" : "border-neutral-300"} {...props} />,
+        table: ({ children, ...props }: MDProps) => (
           <div className="overflow-auto my-4">
             <table
               className={`border-collapse w-full text-sm ${isDarkMode ? "border-neutral-600" : "border-neutral-300"}`}
@@ -147,17 +147,17 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             </table>
           </div>
         ),
-        thead: ({ children, ...props }) => (
+        thead: ({ children, ...props }: MDProps) => (
           <thead className={isDarkMode ? "bg-neutral-800" : "bg-neutral-100"} {...props}>
             {children}
           </thead>
         ),
-        tr: ({ children, ...props }) => (
+        tr: ({ children, ...props }: MDProps) => (
           <tr className={isDarkMode ? "border-neutral-600" : "border-neutral-300"} {...props}>
             {children}
           </tr>
         ),
-        th: ({ children, ...props }) => (
+        th: ({ children, ...props }: MDProps) => (
           <th
             className={`px-3 py-2 text-left font-semibold ${
               isDarkMode ? "border-neutral-600 text-neutral-200" : "border-neutral-300 text-neutral-800"
@@ -167,7 +167,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             {children}
           </th>
         ),
-        td: ({ children, ...props }) => (
+        td: ({ children, ...props }: MDProps) => (
           <td
             className={`px-3 py-2 ${
               isDarkMode ? "border-neutral-600 text-neutral-300" : "border-neutral-300 text-neutral-700"
@@ -177,12 +177,23 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             {children}
           </td>
         ),
-        p: ({ children, ...props }) => (
+        p: ({ children, ...props }: MDProps) => (
           <p className="my-3 leading-relaxed" {...props}>
             {children}
           </p>
         ),
-      }}
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }), [isDarkMode])
+
+  // Hydration guard: useTheme returns different values on server vs client.
+  // Placed after hooks so hook call order is stable.
+  if (!mounted) return null
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeMathjax]}
+      components={markdownComponents}
     >
       {content}
     </ReactMarkdown>

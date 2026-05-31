@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { callGroqLLM } from "@/lib/llm"
+import { generateObject } from "ai"
+import { getOrderedProviders } from "@/lib/ai-providers"
 import { getSkillSpace } from "@/lib/skillspace"
 import { loadChatMessages } from "@/lib/skillChat"
+import { buildQuizPrompt } from "@/lib/prompts"
+import { QuizResponseSchema, QuizQuestion } from "@/lib/schemas"
+
+export const runtime = "nodejs"
+export const maxDuration = 30
 
 interface RoadmapNode {
   id: string
@@ -15,14 +21,6 @@ interface ChatMessage {
   nodeId?: string
 }
 
-interface QuizQuestion {
-  type: "multiple-choice" | "fill-in-the-blank" | "matching"
-  question: string
-  options?: string[]
-  pairs?: { term: string; definition: string }[]
-  correctAnswer: string | { term: string; definition: string }[]
-}
-
 export async function POST(req: NextRequest) {
   try {
     const { uid, skillId, nodeIds } = await req.json()
@@ -32,89 +30,141 @@ export async function POST(req: NextRequest) {
 
     const skill = await getSkillSpace(uid, skillId)
     if (!skill || !skill.roadmapJSON?.nodes) {
-      console.error("Skill or roadmap not found:", { uid, skillId })
       return NextResponse.json({ error: "Skill or roadmap not found" }, { status: 404 })
     }
 
     const nodeTitles = nodeIds
-      .map(id => skill.roadmapJSON?.nodes.flatMap((n: RoadmapNode) => n.children || []).find((c: { id: string; title: string }) => c.id === id)?.title)
+      .map((id) =>
+        skill.roadmapJSON?.nodes
+          .flatMap((n: RoadmapNode) => n.children || [])
+          .find((c: { id: string; title: string }) => c.id === id)?.title
+      )
       .filter(Boolean)
       .join(", ")
+
     if (!nodeTitles) {
-      console.error("No valid node titles for nodeIds:", nodeIds)
       return NextResponse.json({ error: "No valid topics selected" }, { status: 400 })
     }
 
-    const chatHistory = await loadChatMessages(uid, skillId)
-      .then(messages => messages
-        .filter((msg: ChatMessage) => nodeIds.includes(msg.nodeId))
+    // Load relevant chat history for context (fire-and-forget friendly — non-critical)
+    let chatHistory = "No chat history available."
+    try {
+      const { messages: allMessages } = await loadChatMessages(uid, skillId)
+      const relevant = allMessages
+        .filter((msg: ChatMessage) => nodeIds.includes(msg.nodeId ?? ""))
         .map((msg: ChatMessage) => `${msg.role}: ${msg.content}`)
-        .join("\n") || "No chat history available.")
-
-    const prompt = `
-      You are an expert tutor for ${skill.name}.
-      Generate 20 to 30 unique exercises based on:
-      - Topics: ${nodeTitles}
-      - Chat history: ${chatHistory}
-      Respond *only* with a valid JSON array containing 20 to 30 items:
-      [
-        { "type": "multiple-choice", "question": "...", "options": ["a. ...", "b. ...", "c. ...", "d. ..."], "correctAnswer": "a" },
-        { "type": "fill-in-the-blank", "question": "Complete: ___ is a key concept.", "correctAnswer": "..." },
-        { "type": "matching", "question": "Match terms to definitions", "pairs": [{"term": "...", "definition": "..."}, {"term": "...", "definition": "..."}], "correctAnswer": [{"term": "...", "definition": "..."}, {"term": "...", "definition": "..."}] }
-      ]
-      Requirements:
-      - Include a balanced mix of multiple-choice (4 options labeled "a.", "b.", "c.", "d.", correctAnswer as "a", "b", "c", or "d"), fill-in-the-blank (single-word/phrase correctAnswer as a string), and matching (2-4 term-definition pairs, correctAnswer matches pairs exactly).
-      - Aim for roughly equal distribution (e.g., 8-12 MCQs, 6-10 fill-in-the-blanks, 6-10 matching), but flexibility is allowed.
-      - Make exercises fun, concise, relevant, varied, and avoid repetition.
-      - If unable to generate enough, fill remaining slots with contextual exercises like {"type": "fill-in-the-blank", "question": "___ is a key topic in ${skill.name}.", "correctAnswer": "${nodeTitles.split(", ")[0] || "Learning"}"}.
-      **Critical**: Return a valid JSON array with 20 to 30 items.
-    `
-
-    let exercises: string
-    try {
-      exercises = await callGroqLLM([{ role: "user", content: prompt }])
-      console.log("Raw AI response:", exercises)
-    } catch (err) {
-      console.error("Error calling Groq LLM:", err)
-      return NextResponse.json({ error: "Failed to generate exercises" }, { status: 500 })
+        .join("\n")
+      if (relevant) chatHistory = relevant
+    } catch {
+      // Non-critical — quiz can still be generated without chat context
     }
 
-    let parsedExercises: QuizQuestion[]
-    try {
-      parsedExercises = JSON.parse(exercises)
-      if (!Array.isArray(parsedExercises) || parsedExercises.length < 20 || parsedExercises.length > 30) {
-        throw new Error(`Expected 20-30 exercises, got ${parsedExercises.length}`)
+    const prompt = buildQuizPrompt({ skillName: skill.name, nodeTitles, chatHistory })
+
+    // ── Try each provider in failover order ──────────────────────────────────
+    const providers = getOrderedProviders()
+    let questions: QuizQuestion[] | null = null
+
+    for (const provider of providers) {
+      try {
+        console.log(`🎯 [quiz] ${provider.name} — generating for: ${nodeTitles}`)
+
+        const { object } = await generateObject({
+          model: provider.model,
+          schema: QuizResponseSchema,
+          prompt,
+          maxRetries: 0, // fail fast — we handle failover ourselves
+        })
+
+        // Post-parse quality filter (same as before, but now type-safe)
+        const valid = object.questions.filter((q) => {
+          if (q.type === "multiple-choice") {
+            return (
+              q.options &&
+              q.options.length === 4 &&
+              ["a", "b", "c", "d"].includes(q.correctAnswer as string)
+            )
+          }
+          if (q.type === "fill-in-the-blank") {
+            return typeof q.correctAnswer === "string" && q.correctAnswer.length > 0
+          }
+          if (q.type === "matching") {
+            return (
+              q.pairs &&
+              q.pairs.length >= 2 &&
+              Array.isArray(q.correctAnswer)
+            )
+          }
+          return false
+        })
+
+        if (valid.length < 5) {
+          console.warn(`⚠️ [quiz] ${provider.name} — only ${valid.length} valid questions, trying next provider`)
+          continue
+        }
+
+        console.log(`✅ [quiz] ${provider.name} — ${valid.length} questions`)
+        questions = valid
+        break
+      } catch (err) {
+        console.error(`❌ [quiz] ${provider.name} failed:`, err)
+        // Try next provider
       }
-
-      parsedExercises.forEach((q: QuizQuestion) => {
-        if (!["multiple-choice", "fill-in-the-blank", "matching"].includes(q.type)) {
-          throw new Error(`Invalid question type: ${q.type}`)
-        }
-        if (q.type === "multiple-choice" && (!q.options || q.options.length !== 4 || !["a", "b", "c", "d"].includes(q.correctAnswer as string))) {
-          throw new Error("Invalid multiple-choice format")
-        }
-        if (q.type === "fill-in-the-blank" && typeof q.correctAnswer !== "string") {
-          throw new Error("Invalid fill-in-the-blank format")
-        }
-        if (q.type === "matching" && (!q.pairs || !Array.isArray(q.pairs) || q.pairs.length < 2 || !Array.isArray(q.correctAnswer))) {
-          throw new Error("Invalid matching format")
-        }
-      })
-    } catch (err) {
-      console.error("Invalid AI response:", err, "Raw response:", exercises)
-      parsedExercises = [
-        { type: "multiple-choice" as const, question: `What is a key feature of ${skill.name}?`, options: ["a. Speed", "b. UI", "c. Data", "d. Loops"], correctAnswer: "b" },
-        { type: "fill-in-the-blank" as const, question: `${skill.name} uses ___ for syntax.`, correctAnswer: "JSX" },
-        { type: "matching" as const, question: "Match terms", pairs: [{ term: "JSX", definition: "Syntax extension" }, { term: "Component", definition: "Reusable UI" }], correctAnswer: [{ term: "JSX", definition: "Syntax extension" }, { term: "Component", definition: "Reusable UI" }] },
-        // Add more contextual fallbacks up to 20
-      ].concat(Array(17).fill({ type: "fill-in-the-blank" as const, question: `${skill.name} is a ___ tool.`, correctAnswer: nodeTitles.split(", ")[0] || "great" }))
-      console.warn("Using contextual fallback exercises due to invalid AI response")
     }
 
-    return NextResponse.json(parsedExercises)
+    if (!questions) {
+      console.warn("⚠️ [quiz] All providers failed — using fallback exercises")
+      questions = buildFallbackExercises(skill.name, nodeTitles)
+    }
+
+    return NextResponse.json(questions)
   } catch (err: unknown) {
     console.error("Quiz API error:", err)
     const errorMessage = err instanceof Error ? err.message : "Failed to generate exercises"
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
+}
+
+function buildFallbackExercises(skillName: string, nodeTitles: string): QuizQuestion[] {
+  const firstTopic = nodeTitles.split(", ")[0] || skillName
+  return [
+    {
+      type: "multiple-choice",
+      question: `What is a key feature of ${firstTopic}?`,
+      options: ["a. Performance", "b. Simplicity", "c. Flexibility", "d. All of the above"],
+      correctAnswer: "d",
+    },
+    {
+      type: "fill-in-the-blank",
+      question: `${firstTopic} is a fundamental concept in ${skillName} that helps with ___.`,
+      correctAnswer: "problem solving",
+    },
+    {
+      type: "multiple-choice",
+      question: `When should you use ${firstTopic}?`,
+      options: [
+        "a. Always, in every situation",
+        "b. When it solves the problem at hand",
+        "c. Never, it's outdated",
+        "d. Only in large projects",
+      ],
+      correctAnswer: "b",
+    },
+    {
+      type: "fill-in-the-blank",
+      question: `In ${skillName}, ___ is used to organize code effectively.`,
+      correctAnswer: firstTopic,
+    },
+    {
+      type: "multiple-choice",
+      question: `Which of the following best describes ${skillName}?`,
+      options: [
+        "a. A programming language only",
+        "b. A set of tools and concepts for building solutions",
+        "c. A database technology",
+        "d. An operating system",
+      ],
+      correctAnswer: "b",
+    },
+  ]
 }
