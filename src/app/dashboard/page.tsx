@@ -20,9 +20,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { CircleFadingPlus, GalleryHorizontalEnd, LayoutGrid, List, Loader, Orbit, Rocket, Search, X } from "lucide-react"
+import { CircleFadingPlus, LayoutGrid, List, Loader, Rocket, Search, X } from "lucide-react"
 import Image from "next/image"
 import UserProfileBadge from "@/components/user-profile-badge"
+import AppHeader from "@/components/app-header"
 
 export default function DashboardPage() {
   const { user, loading } = useAuthContext()
@@ -125,14 +126,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-800">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-white/20 dark:bg-neutral-800/70 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-700">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Orbit className="h-6 w-6 text-[#6c63ff] dark:text-[#7a83ff]" />
-            <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-300">SkillSpace</h2>
-          </div>
-
-          <div className="flex items-center gap-3">
+      <AppHeader>
             <Dialog open={openDialog} onOpenChange={setOpenDialog}>
               <DialogTrigger asChild>
                 <Button
@@ -185,9 +179,7 @@ export default function DashboardPage() {
               </DialogContent>
             </Dialog>
             <UserProfileBadge />
-          </div>
-        </div>
-      </header>
+      </AppHeader>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -238,7 +230,7 @@ export default function DashboardPage() {
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search skills..."
                       aria-label="Search skills"
-                      className="pl-10 pr-9 rounded-full bg-white dark:bg-[hsl(0,0%,18%)] border-neutral-300/50 dark:border-neutral-700/50 focus-visible:ring-1"
+                      className="pl-10 pr-9 rounded-full bg-white dark:bg-[hsl(0,0%,18%)] border-neutral-300/50 dark:border-neutral-700/50 focus-visible:ring-1 focus-visible:ring-[#6c63ff] dark:focus-visible:ring-[#7a83ff]"
                     />
                     {query && (
                       <button
@@ -259,7 +251,7 @@ export default function DashboardPage() {
                     {(
                       [
                         { mode: "grid", Icon: LayoutGrid, label: "Grid view" },
-                        { mode: "gallery", Icon: GalleryHorizontalEnd, label: "Gallery view" },
+                        // { mode: "gallery", Icon: GalleryHorizontalEnd, label: "Gallery view" },
                         { mode: "list", Icon: List, label: "List view" },
                       ] as const
                     ).map(({ mode, Icon, label }) => (

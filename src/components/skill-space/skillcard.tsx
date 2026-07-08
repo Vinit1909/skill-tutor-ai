@@ -1,10 +1,5 @@
 import { useState } from 'react'
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card"
-import {
   Card,
   CardContent,
   CardHeader,
@@ -22,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Trash2, Info, CalendarIcon, Dices, BookOpenText } from 'lucide-react'
+import { Trash2, CalendarIcon, Dices, BookOpenText } from 'lucide-react'
 import { useAuthContext } from "@/context/authcontext"
 import { Progress } from "@/components/ui/progress"
 import { SkillSpaceData, deleteSkillSpaceDeep, updateSkillSpace } from "@/lib/skillspace"
@@ -135,7 +130,7 @@ export default function SkillCard({ skill, onUpdated, variant = "grid" }: SkillC
       <CardHeader className="pb-4 place-items-center">
         <div className="flex items-center justify-between w-full space-x-2">
           <div className="flex items-center min-w-0 space-x-3">
-            <div className="flex-shrink-0 bg-primary-background dark:bg-primary-background">
+            {/* <div className="flex-shrink-0 bg-primary-background dark:bg-primary-background">
               <HoverCard>
                 <HoverCardTrigger asChild>
                   <div
@@ -161,7 +156,7 @@ export default function SkillCard({ skill, onUpdated, variant = "grid" }: SkillC
                   </div>
                 </HoverCardContent>
               </HoverCard>
-            </div>
+            </div> */}
 
             {/* Inline-editable skill name */}
             <div className="flex gap-2 min-w-0">
@@ -187,9 +182,6 @@ export default function SkillCard({ skill, onUpdated, variant = "grid" }: SkillC
           card — no hover needed — for a more browsable, visual layout. */}
       {isGallery && (
         <CardContent className="px-4 pt-0 pb-3">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2 min-h-[2.5rem]">
-            {skill.description || "No description yet."}
-          </p>
           <div className="flex items-center pt-2 text-xs text-muted-foreground">
             <CalendarIcon className="mr-2 h-3.5 w-3.5 opacity-70" />
             {formatSkillCreatedAt(skill)}

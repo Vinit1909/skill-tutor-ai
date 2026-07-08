@@ -18,7 +18,6 @@ import {
   LineChartIcon,
   ListChecks,
   Loader,
-  Orbit,
   PieChartIcon,
   ShieldMinus,
   ShieldPlus,
@@ -45,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import UserProfileBadge from "@/components/user-profile-badge"
+import AppHeader from "@/components/app-header"
 import { ShineBorder } from "@/components/magicui/shine-border"
 import { Separator } from "@/components/ui/separator"
 
@@ -281,18 +281,9 @@ export default function UserProfileDashboard() {
 
   return (
     <>
-      <header className="sticky top-0 z-20 bg-white/20 dark:bg-neutral-800/70 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-700">
-          <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <Orbit className="h-6 w-6 text-[#6c63ff] dark:text-[#7a83ff]" />
-                <h2 className="text-xl font-semibold text-neutral-700 dark:text-neutral-300">SkillSpace</h2>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <UserProfileBadge />
-            </div>
-          </div>
-      </header>
+      <AppHeader>
+        <UserProfileBadge />
+      </AppHeader>
       <div className="w-full max-w-7xl mx-auto p-6 lg:p-8 pb-16">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
