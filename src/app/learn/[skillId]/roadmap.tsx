@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react"
 import { useAuthContext } from "@/context/authcontext"
 import { doc, onSnapshot} from 'firebase/firestore'
-import { db } from '@/lib/firebase' 
+import { db } from '@/lib/firebase'
 import Image from "next/image"
 import { IoCreateOutline } from "react-icons/io5"
 import { ChevronRight } from "lucide-react"
@@ -94,11 +94,11 @@ export default function Roadmap({ skillId, roadmap, skill, onCreateRoadmap }: Ro
 						<span>Progress</span>
 						<span>{progressPercentage}%</span>
 					</div>
-					<Progress 
-						value={progressPercentage} 
+					<Progress
+						value={progressPercentage}
 						className="h-2"
 					/>
-				</div>	
+				</div>
         {/* </p> */}
       </SidebarFooter>
       </Sidebar>

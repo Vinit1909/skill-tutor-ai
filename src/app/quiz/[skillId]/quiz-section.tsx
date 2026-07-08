@@ -9,8 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import { getCompletedNodes, getQuizQuestions, saveQuizResult, Quiz } from "@/lib/quiz"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
-import { SelectTrigger } from "@radix-ui/react-select"
+import { Select, SelectContent, SelectItem, SelectValue, SelectTrigger } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { SkillSpaceData } from "@/lib/skillspace"
 import Image from "next/image"
@@ -63,10 +62,23 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
   const [showResults, setShowResults] = useState(false)
   const [showTypeSelection, setShowTypeSelection] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  // Separate from isLoading: question generation runs an LLM call (5–15s) and
+  // must show inline progress, not swap the whole page for a spinner.
+  const [isGenerating, setIsGenerating] = useState(false)
   const [quizHistory, setQuizHistory] = useState<QuizResult[]>([])
   const [currentInput, setCurrentInput] = useState<string>("")
   const [selectedResult, setSelectedResult] = useState<QuizResult | null>(null)
   const { toast } = useToast()
+
+  // Escape closes the result-detail modal (it's a raw overlay, not a Dialog).
+  useEffect(() => {
+    if (!selectedResult) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedResult(null)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [selectedResult])
 
   const fetchNodeTitles = useCallback((nodeIds: string[]) => {
     if (!skill?.roadmapJSON?.nodes) return
@@ -125,7 +137,8 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
       toast({ title: "Oops!", description: "Select at least one topic!", variant: "destructive" })
       return
     }
-    setIsLoading(true)
+    if (isGenerating) return // double-click guard — generation takes 5–15s
+    setIsGenerating(true)
     try {
       const quizQuestions = await getQuizQuestions(user.uid, skillId, selectedTopics, selectedType)
       if (quizQuestions.length < 5) {
@@ -155,7 +168,7 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
       const errorMessage = err instanceof Error ? err.message : "Failed to start quiz"
       toast({ title: "Error", description: errorMessage, variant: "destructive" })
     } finally {
-      setIsLoading(false)
+      setIsGenerating(false)
     }
   }
 
@@ -360,10 +373,17 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
           </div>
           <Button
             onClick={startQuiz}
-            disabled={isLoading}
+            disabled={isGenerating}
             className="w-full sm:w-auto bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-700 dark:hover:bg-neutral-600"
           >
-            {isLoading ? "Loading..." : "Start Quiz"}
+            {isGenerating ? (
+              <span className="flex items-center gap-2">
+                <Loader className="h-4 w-4 animate-spin" />
+                Generating questions… (~10s)
+              </span>
+            ) : (
+              "Start Quiz"
+            )}
           </Button>
         </div>
       ) : showResults ? (
@@ -413,7 +433,17 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
           </div>
           <div className="flex gap-4 justify-center">
             <Button onClick={handleQuizSubmit} className="bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-700 dark:hover:bg-neutral-600">Save Results</Button>
-            <Button variant="outline" onClick={() => setQuestions([])}>Try Again</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Discards unsaved answers — confirm before resetting.
+                if (window.confirm("Discard these results and pick new topics? Unsaved answers will be lost.")) {
+                  setQuestions([])
+                }
+              }}
+            >
+              Try Again
+            </Button>
           </div>
         </div>
       ) : (
@@ -428,7 +458,14 @@ export default function QuizSection({ skillId, skill }: QuizSectionProps) {
                   <Button
                     key={idx}
                     variant="outline"
-                    onClick={() => handleAnswer(opt.split(".")[0].trim())}
+                    // Letter extraction tolerant of "a.", "a)", "(a)" — and falls
+                    // back to the option's index so a format drift never breaks scoring.
+                    onClick={() =>
+                      handleAnswer(
+                        opt.trim().match(/^\(?([a-d])[).]/i)?.[1].toLowerCase() ??
+                          ["a", "b", "c", "d"][idx]
+                      )
+                    }
                     className="w-full text-left justify-start border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
                     {opt}

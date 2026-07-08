@@ -29,6 +29,13 @@ export function getOrderedProviders(): AIProvider[] {
       providers.push({ name: "Groq (llama-3.3-70b)", model: groq("llama-3.3-70b-versatile") })
       // Fallback: separate TPD bucket — still available when the 70b model is rate-limited.
       providers.push({ name: "Groq (llama-3.1-8b)", model: groq("llama-3.1-8b-instant") })
+      // Vision-capable (multimodal). Llama 4 Scout accepts images, so multimodal
+      // works on Groq without needing a Gemini key. If this model ID is ever
+      // retired, vision routing falls back to Gemini (when configured).
+      providers.push({
+        name: "Groq (llama-4-scout vision)",
+        model: groq("meta-llama/llama-4-scout-17b-16e-instruct"),
+      })
     } catch {
       console.warn("⚠️ Failed to initialize Groq provider")
     }
@@ -41,6 +48,39 @@ export function getOrderedProviders(): AIProvider[] {
       providers.push({ name: "Google Gemini", model: google("gemini-2.0-flash") })
     } catch {
       console.warn("⚠️ Failed to initialize Google Gemini provider")
+    }
+  }
+
+  if (process.env.NVIDIA_API_KEY) {
+    try {
+      // NVIDIA NIM (build.nvidia.com) — OpenAI-compatible, free dev credits.
+      // ROLE: LAST-RESORT FALLBACK ONLY. Measured 2026-06-11: free-tier queue
+      // gives the 675B a TTFT of 120–260s (~9 tok/s) — unusable interactively,
+      // but a slow answer still beats a hard error when every fast provider is
+      // down. Do not promote these in llm-router without re-measuring latency.
+      const nvidia = createOpenAI({
+        baseURL: "https://integrate.api.nvidia.com/v1",
+        apiKey: process.env.NVIDIA_API_KEY,
+      })
+      // Quality verified (clean prose with tools attached, real tool calls,
+      // generateObject works) — only latency disqualifies it from leading.
+      providers.push({
+        name: "NVIDIA (mistral-large-3-675b)",
+        model: nvidia("mistralai/mistral-large-3-675b-instruct-2512"),
+      })
+      // Vision last-resort (proper tool_calls verified live).
+      providers.push({
+        name: "NVIDIA (llama-3.2-90b-vision)",
+        model: nvidia("meta/llama-3.2-90b-vision-instruct"),
+      })
+      // NOT registered (verified failures — do not re-add without retesting):
+      //  - meta/llama-4-maverick-17b-128e-instruct: with tools attached it
+      //    emits raw tool-call JSON into the TEXT stream (visible garbage).
+      //  - qwen3-next-80b / nemotron-super-49b: reasoning-hybrid — text
+      //    channel comes back EMPTY through the AI SDK.
+      //  - DeepSeek V4/R1 reasoning family: thinking traces leak into output.
+    } catch {
+      console.warn("⚠️ Failed to initialize NVIDIA NIM provider")
     }
   }
 
@@ -59,21 +99,9 @@ export function getOrderedProviders(): AIProvider[] {
     }
   }
 
-  if (process.env.FIREWORKS_API_KEY) {
-    try {
-      const fireworks = createOpenAI({
-        baseURL: "https://api.fireworks.ai/inference/v1",
-        apiKey: process.env.FIREWORKS_API_KEY,
-      })
-      // Updated to llama-v3p3 — llama-v3p1-70b-instruct was removed from Fireworks.
-      providers.push({
-        name: "Fireworks AI",
-        model: fireworks("accounts/fireworks/models/llama-v3p3-70b-instruct"),
-      })
-    } catch {
-      console.warn("⚠️ Failed to initialize Fireworks AI provider")
-    }
-  }
+  // Fireworks AI was removed: its llama-70b model IDs were retired and every
+  // fallback pass burned a roundtrip on a guaranteed "Model not found" error.
+  // Re-add here with a verified model ID if a Fireworks key is provisioned again.
 
   return providers
 }

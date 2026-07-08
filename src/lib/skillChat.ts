@@ -16,6 +16,29 @@ import {
 } from "firebase/firestore"
 import { db } from "./firebase"
 
+/**
+ * A renderable artifact (diagram/chart/SVG/runnable code) emitted by the AI via
+ * the renderArtifact tool. Persisted alongside the message so it survives reloads
+ * — tool invocations live outside message.content and would otherwise be lost.
+ */
+export interface StoredArtifact {
+  artifactId: string
+  type: string
+  title: string
+  content: string
+  language?: string
+}
+
+/**
+ * A user-uploaded attachment (e.g. an image) persisted with the message so it
+ * survives reloads. `url` is a base64 data URL.
+ */
+export interface StoredAttachment {
+  url: string
+  contentType: string
+  name?: string
+}
+
 export interface ChatMessageData {
   id?: string
   role: string | "user" | "assistant"
@@ -23,6 +46,8 @@ export interface ChatMessageData {
   createdAt?: Timestamp
   nodeId?: string
   skillId?: string
+  artifacts?: StoredArtifact[]
+  attachments?: StoredAttachment[]
 }
 
 export interface PaginatedMessages {
@@ -83,6 +108,8 @@ export async function loadChatMessages(
       createdAt: data.createdAt,
       nodeId: data.nodeId,
       skillId: data.skillId,
+      artifacts: Array.isArray(data.artifacts) ? data.artifacts : undefined,
+      attachments: Array.isArray(data.attachments) ? data.attachments : undefined,
     }
   })
 
@@ -98,14 +125,19 @@ export async function addChatMessage(
   skillId: string,
   role: "user" | "assistant",
   content: string,
-  nodeId?: string
+  nodeId?: string,
+  artifacts?: StoredArtifact[],
+  attachments?: StoredAttachment[]
 ) {
   const ref = collection(db, "users", uid, "skillspaces", skillId, "chats")
   await addDoc(ref, {
     role,
     content,
     createdAt: serverTimestamp(),
+    // Firestore rejects `undefined`, so only include optional fields when present.
     ...(nodeId ? { nodeId } : {}),
+    ...(artifacts && artifacts.length ? { artifacts } : {}),
+    ...(attachments && attachments.length ? { attachments } : {}),
   })
 }
 

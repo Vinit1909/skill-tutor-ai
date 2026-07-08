@@ -94,7 +94,7 @@ export default function SkillCard({ skill, onUpdated }: SkillCardProps) {
                   <div
                     className={`p-2 rounded-full hover:cursor-pointer dark:hover:text-blue-300  dark:hover:bg-blue-950/40 hover:text-blue-600 hover:bg-blue-50`}
                   >
-                    <Info size="icon" className="h-4 w-4" />
+                    <Info className="h-4 w-4" />
                   </div>
                 </HoverCardTrigger>
                 <HoverCardContent className="w-60 dark:bg-[hsl(0,0%,18%)]">

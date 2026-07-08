@@ -21,6 +21,8 @@ import {
 import { WandSparkles } from "lucide-react"
 import { RiAiGenerate } from "react-icons/ri"
 import { ShineBorder } from "../magicui/shine-border"
+import { getAuthHeaders } from "@/lib/clientAuth"
+import { saveGeneratedRoadmap } from "@/lib/skillspace"
 
 interface OnboardingWizardProps {
   skillName: string
@@ -48,24 +50,48 @@ export default function OnboardingWizard({
     try {
       const res = await fetch("/api/generate-roadmap", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
         body: JSON.stringify({
           uid,
           skillId,
+          skillName,
           level,
           goals,
           priorKnowledge,
         }),
+        // Generation normally takes ~5–15s (each provider has a 45s server-side
+        // deadline before failing over). If we're still waiting after 2 minutes,
+        // something is genuinely wrong — surface an error instead of an
+        // infinite spinner the user will "fix" by refreshing (which would
+        // abandon the request entirely).
+        signal: AbortSignal.timeout(120_000),
       })
       const data = await res.json()
 
-      if (data.error) {
-        throw new Error(data.error)
+      if (data.error || !data.roadmap) {
+        throw new Error(data.userMessage || data.error || "Roadmap generation failed")
       }
+
+      // The API is pure generation — persistence happens here, where the user
+      // is authenticated (locked Firestore rules reject server-side writes).
+      // This also fixes a bug where starter questions were never saved at all.
+      await saveGeneratedRoadmap(
+        uid,
+        skillId,
+        data.roadmap,
+        { level, goals, priorKnowledge },
+        data.questions ?? []
+      )
       onComplete()
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred"
-      setError(errorMessage)
+      const isTimeout = err instanceof Error && /timeout|abort/i.test(err.name + err.message)
+      setError(
+        isTimeout
+          ? "Roadmap generation took too long. Please try again — it usually takes under 20 seconds."
+          : err instanceof Error
+          ? err.message
+          : "An unexpected error occurred"
+      )
     } finally {
       setLoading(false)
     }

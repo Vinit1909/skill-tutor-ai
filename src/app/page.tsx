@@ -172,44 +172,16 @@ export default function LandingPage() {
     const currentInput = demoInput
     setDemoInput("")
 
-    try {
-      // Make actual API call to your LLM endpoint
-      const response = await fetch("/api/llm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "assistant",
-              content: "You are a helpful React tutor. You're teaching someone about React Props. Keep responses concise but helpful, and use markdown for formatting. Be encouraging and practical.",
-            },
-            ...demoMessages,
-            userMessage
-          ]
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const aiMessage = { role: "assistant" as const, content: data.content || "Thanks for trying out the demo! This gives you a taste of how our AI tutor works. Sign up to get your personalized learning experience!" }
-        setDemoMessages(prev => [...prev, aiMessage])
-      } else {
-        // Fallback response
-        setDemoMessages(prev => [...prev, { 
-          role: "assistant" as const, 
-          content: `Great question about "${currentInput}"! This is just a demo, but our full AI tutor would provide detailed explanations with examples, code snippets, and personalized guidance based on your learning progress. Sign up to experience the complete learning journey!`
-        }])
-      }
-    } catch (error) {
-      // Log error and fallback response for any errors
-      console.error(error)
-      setDemoMessages(prev => [...prev, { 
-        role: "assistant" as const, 
-        content: "Thanks for trying the demo! Our AI tutor would normally provide a detailed response here. Sign up to get access to the full learning experience with personalized guidance!"
-      }])
-    } finally {
-      setIsTyping(false)
-    }
+    // The landing demo is intentionally scripted. It previously fetched
+    // /api/llm — a route that doesn't exist (every message 404'd into a
+    // fallback) — and a real unauthenticated LLM endpoint would let anyone
+    // drain the provider quota. The live tutor starts after sign-up.
+    await new Promise((r) => setTimeout(r, 900))
+    setDemoMessages(prev => [...prev, {
+      role: "assistant" as const,
+      content: `Great question about "${currentInput}"! In the full app I'd answer with a tailored explanation, interactive diagrams, runnable code, and practice exercises that update your personal roadmap as you learn. Sign up to start your learning journey!`
+    }])
+    setIsTyping(false)
   }
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -639,7 +611,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                icon: RiRoadMapFill, RiLightbulbFlashFill ,
+                icon: RiRoadMapFill,
                 title: "AI-Generated Roadmaps",
                 description: "Get personalized learning paths tailored to your goals, experience level, and learning style."
               },

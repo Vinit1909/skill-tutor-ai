@@ -40,7 +40,7 @@ export async function createSkillSpace(uid: string, name: string, description: s
         name,
         description,
         value: 1,
-        max: 100, 
+        max: 100,
         createdAt: serverTimestamp(),
     })
     return docRef.id
@@ -54,9 +54,6 @@ export async function getAllSkillSpaces(uid: string): Promise<SkillSpaceData[]> 
     const results: SkillSpaceData[] = []
     snap.forEach((docSnap) => {
         const data = docSnap.data()
-        // debugging:
-        console.log("DOC DATA:", docSnap.id, data)
-
         results.push({
             id: docSnap.id,
             name: data.name,
@@ -66,9 +63,6 @@ export async function getAllSkillSpaces(uid: string): Promise<SkillSpaceData[]> 
             createdAt: data.createdAt,
         })
     })
-    
-    // debugging:
-    console.log("getAllSkillSpaces => results:", results)
     return results
 }
 
@@ -80,6 +74,34 @@ export async function updateSkillSpace(uid: string, docId: string, data: Partial
 export async function deleteSkillSpace(uid: string, docId: string) {
     const docRef = doc(db, "users", uid, "skillspaces", docId)
     await deleteDoc(docRef)
+}
+
+/**
+ * Persists a freshly generated roadmap + its starter questions, replacing any
+ * previous questions. Runs CLIENT-SIDE (the user is authenticated here) — the
+ * generate-roadmap API is pure generation and never touches Firestore.
+ */
+export async function saveGeneratedRoadmap(
+    uid: string,
+    skillId: string,
+    roadmap: { title: string; nodes: RoadmapNode[] },
+    context: { level?: string; goals?: string; priorKnowledge?: string },
+    questions: Array<Record<string, unknown>>
+): Promise<void> {
+    await updateSkillSpace(uid, skillId, {
+        roadmapJSON: roadmap,
+        roadmapContext: context,
+        level: context.level,
+        goals: context.goals,
+        priorKnowledge: context.priorKnowledge,
+    })
+
+    // Replace old questions with the new set
+    const skillRef = doc(db, "users", uid, "skillspaces", skillId)
+    const questionsRef = collection(skillRef, "questions")
+    const existing = await getDocs(questionsRef)
+    await Promise.all(existing.docs.map((d) => deleteDoc(d.ref)))
+    await Promise.all(questions.map((q) => addDoc(questionsRef, q)))
 }
 
 // handle deletion of subcollections when skillspace is deleted
@@ -115,18 +137,18 @@ export async function getSkillSpace(uid: string, docId: string): Promise<SkillSp
     const data = snap.data()
     return {
         id: snap.id,
-        name: data.name, 
+        name: data.name,
         description: data.description,
         value: data.value,
         max: data.max,
         createdAt: data.createdAt,
         roadmapContext: data.roadmapContext,
-        roadmapJSON: data.roadmapJSON, 
+        roadmapJSON: data.roadmapJSON,
         activeNodeId: data.activeNodeId,
     }
 }
 
-export function calculateSkillProgress(nodes: RoadmapNode[]): {value: number, max: number} {
+export function calculateSkillProgress(nodes: RoadmapNode[]): { value: number; max: number } {
     let value = 0
     let totalMax = 0
 
@@ -134,13 +156,9 @@ export function calculateSkillProgress(nodes: RoadmapNode[]): {value: number, ma
         if (!node.children || node.children.length === 0) {
             return node.status
         }
-        const childStatuses = node.children.map(child => updateParentStatus(child))
-        if (childStatuses.every(s => s === "COMPLETED")) {
-            return "COMPLETED"
-        }
-        if (childStatuses.some(s => s === "IN_PROGRESS" || s === "COMPLETED")) {
-            return "IN_PROGRESS"
-        }
+        const childStatuses = node.children.map((child) => updateParentStatus(child))
+        if (childStatuses.every((s) => s === "COMPLETED")) return "COMPLETED"
+        if (childStatuses.some((s) => s === "IN_PROGRESS" || s === "COMPLETED")) return "IN_PROGRESS"
         return "NOT_STARTED"
     }
 
@@ -156,18 +174,16 @@ export function calculateSkillProgress(nodes: RoadmapNode[]): {value: number, ma
     }
 
     nodes.forEach(flattenNodes)
-    return {value, max: totalMax}    
+    return { value, max: totalMax }
 }
 
 export async function updateNodeStatus(uid: string, skillId: string, nodeId: string, newStatus: NodeStatus) {
     const skillRef = doc(db, "users", uid, "skillspaces", skillId)
     const snap = await getDoc(skillRef)
     if (!snap.exists()) throw new Error("Skill not found")
-    
+
     const skillData = snap.data() as SkillSpaceData
     if (!skillData.roadmapJSON?.nodes) throw new Error("No roadmap found")
-    
-    console.log("Before update - Nodes:", JSON.stringify(skillData.roadmapJSON.nodes))
 
     function updateNode(nodes: RoadmapNode[], targetId:string, newStatus: NodeStatus) {
         return nodes.map(node => {
@@ -181,7 +197,7 @@ export async function updateNodeStatus(uid: string, skillId: string, nodeId: str
             return updatedNode
         })
     }
-    
+
     const updatedNodes = updateNode(skillData.roadmapJSON.nodes, nodeId, newStatus)
     const {value, max} = calculateSkillProgress(updatedNodes)
 

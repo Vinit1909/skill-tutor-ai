@@ -219,10 +219,28 @@ export default function UserProfileDashboard() {
       }
     })
 
-  // Calculate learning streaks (days with consecutive activity)
-  const quizDates = quizResults.map((q) => new Date(q.timestamp.seconds * 1000).toDateString())
-  const uniqueDates = [...new Set(quizDates)]
-  const currentStreak = uniqueDates.length ? 1 : 0 // Simplified for demo - would need more logic for actual streaks
+  // Learning streak: consecutive days (ending today or yesterday) with at
+  // least one quiz. Day-level granularity, local timezone.
+  const dayMs = 86_400_000
+  const uniqueDays = [
+    ...new Set(
+      quizResults.map((q) =>
+        new Date(new Date(q.timestamp.seconds * 1000).toDateString()).getTime()
+      )
+    ),
+  ].sort((a, b) => b - a)
+  let currentStreak = 0
+  if (uniqueDays.length) {
+    const todayStart = new Date(new Date().toDateString()).getTime()
+    // A streak is "alive" if the latest activity was today or yesterday.
+    if (todayStart - uniqueDays[0] <= dayMs) {
+      currentStreak = 1
+      for (let i = 1; i < uniqueDays.length; i++) {
+        if (uniqueDays[i - 1] - uniqueDays[i] === dayMs) currentStreak++
+        else break
+      }
+    }
+  }
 
   // Calculate average time per quiz if available
   const quizzesWithTime = quizResults.filter((q) => q.timeToComplete)

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -22,8 +22,31 @@ export default function SignInPage() {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
+    const [info, setInfo] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const router = useRouter()
+
+    const handleForgotPassword = async () => {
+        setError("")
+        setInfo("")
+        if (!email) {
+            setError("Enter your email above first, then click \"Forgot password?\".")
+            return
+        }
+        try {
+            await sendPasswordResetEmail(auth, email)
+            // Same message whether or not the account exists — don't leak
+            // which emails are registered.
+            setInfo("If an account exists for that email, a reset link is on its way.")
+        } catch (err: unknown) {
+            // Firebase throws on malformed emails; keep account existence private.
+            if (err instanceof Error && err.message.includes("invalid-email")) {
+                setError("That doesn't look like a valid email address.")
+            } else {
+                setInfo("If an account exists for that email, a reset link is on its way.")
+            }
+        }
+    }
 
     const handleSignIn = async (e?: React.FormEvent) => {
         e?.preventDefault()
@@ -90,7 +113,18 @@ export default function SignInPage() {
                             <label className="sr-only" htmlFor="password">Password</label>
                             <Input id="password" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
 
+                            <div className="text-right">
+                                <button
+                                    type="button"
+                                    onClick={handleForgotPassword}
+                                    className="text-xs text-muted-foreground hover:text-primary hover:underline"
+                                >
+                                    Forgot password?
+                                </button>
+                            </div>
+
                             {error && <p className="text-sm text-red-500">{error}</p>}
+                            {info && <p className="text-sm text-green-600 dark:text-green-400">{info}</p>}
 
                             <Button type="submit" className="w-full mt-1" disabled={isSubmitting || !email || !password}>
                                 <span className="flex items-center justify-center gap-2">

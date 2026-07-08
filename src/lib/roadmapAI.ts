@@ -10,7 +10,7 @@
  */
 
 import { generateObject } from "ai"
-import { getOrderedProviders } from "./ai-providers"
+import { routeToProviders } from "./llm-router"
 import { buildRoadmapPrompt } from "./prompts"
 import { RoadmapGenerationSchema, type RoadmapGeneration } from "./schemas"
 
@@ -26,13 +26,13 @@ export async function generateRoadmap({
   priorKnowledge?: string
 }): Promise<RoadmapGeneration> {
   const prompt = buildRoadmapPrompt({ skillName, level, goals, priorKnowledge })
-  const providers = getOrderedProviders()
+  const { providers, rationale } = routeToProviders({ taskType: "STRUCTURED" })
 
   if (providers.length === 0) {
     throw new Error("No LLM providers available. Please check your API keys.")
   }
 
-  console.log(`🎯 Generating roadmap for "${skillName}" with ${providers.length} providers available`)
+  console.log(`🎯 Generating roadmap for "${skillName}" | ${rationale}`)
 
   for (const provider of providers) {
     try {
@@ -43,6 +43,10 @@ export async function generateRoadmap({
         schema: RoadmapGenerationSchema,
         prompt,
         maxRetries: 0, // fail fast → next provider
+        // Hard per-provider deadline: a queued/slow provider must FAIL OVER,
+        // not hang the route (NIM 675B once took 262s while the user stared
+        // at a spinner). Groq does this in ~2s; 45s is generous.
+        abortSignal: AbortSignal.timeout(45_000),
       })
 
       console.log(

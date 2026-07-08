@@ -19,7 +19,7 @@ import { generateText } from "ai"
 import { getOrderedProviders } from "@/lib/ai-providers"
 import { buildProgressionSystemPrompt, type ChatSkillContext } from "@/lib/prompts"
 import { createProgressionTools, type ToolInvocationResult } from "@/lib/progression"
-import { getSkillSpace } from "@/lib/skillspace"
+import { verifyAuth } from "@/lib/serverAuth"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -67,6 +67,12 @@ export async function POST(req: Request) {
       return Response.json({ toolInvocations: [] })
     }
 
+    // Identity check — progression writes are attributed to this uid client-side.
+    const auth = await verifyAuth(req, uid)
+    if (!auth.ok) {
+      return Response.json({ toolInvocations: [], error: auth.error }, { status: auth.status })
+    }
+
     // ── Server-side guardrails ─────────────────────────────────────────────
     const userMessages = messages.filter((m) => m.role === "user")
     const userMessageCount = userMessages.length
@@ -87,7 +93,8 @@ export async function POST(req: Request) {
     }
 
     // ── Build prompt & call LLM ────────────────────────────────────────────
-    const skill = skillContext ?? (await getSkillSpace(uid, skillId))
+    // Context comes from the authenticated client; the server never reads Firestore.
+    const skill = skillContext ?? null
     const systemPrompt = buildProgressionSystemPrompt(skill, activeNodeId, userMessageCount)
 
     const providers = getOrderedProviders()
@@ -104,7 +111,9 @@ export async function POST(req: Request) {
         const result = await generateText({
           model: provider.model,
           system: systemPrompt,
-          messages,
+          // Recent window only — progression decisions don't need deep history,
+          // and the payload must stay bounded server-side.
+          messages: messages.slice(-12),
           tools,
           maxSteps: 2,    // 1 tool call + possible suggestNextNode after markNodeComplete
           maxRetries: 0,  // fail fast — progression is background, not critical
