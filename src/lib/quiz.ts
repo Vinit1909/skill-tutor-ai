@@ -1,7 +1,9 @@
 // src/lib/quiz.ts
 import { collection, doc, getDoc, getDocs, setDoc, Timestamp } from "firebase/firestore"
 import { db } from "./firebase"
-import { getSkillSpace } from "./skillspace"
+import { getSkillSpace, type NodeStatus } from "./skillspace"
+import { loadChatMessages } from "./skillChat"
+import { getAuthHeaders } from "./clientAuth"
 
 interface RoadmapNode {
   id: string
@@ -10,7 +12,7 @@ interface RoadmapNode {
 
 interface RoadmapChild {
   id: string
-  status: string
+  status: NodeStatus
 }
 
 export interface QuizQuestion {
@@ -50,10 +52,36 @@ export async function generateQuizQuestions(uid: string, skillId: string, nodeId
   const skill = await getSkillSpace(uid, skillId)
   if (!skill) throw new Error("Skill not found")
 
+  // The client (authenticated) assembles all context the API needs — the server
+  // never reads Firestore (locked rules reject unauthenticated server reads).
+  const nodeTitles = nodeIds
+    .map((id) =>
+      skill.roadmapJSON?.nodes
+        ?.flatMap((n: RoadmapNode & { children?: { id: string; title?: string }[] }) => n.children || [])
+        .find((c) => c.id === id) as { title?: string } | undefined
+    )
+    .map((c) => c?.title)
+    .filter(Boolean)
+    .join(", ")
+  if (!nodeTitles) throw new Error("No valid topics selected")
+
+  // Recent chat on the selected topics, for question relevance (best effort).
+  let chatContext = ""
+  try {
+    const { messages } = await loadChatMessages(uid, skillId, undefined, 50)
+    chatContext = messages
+      .filter((m) => nodeIds.includes(m.nodeId ?? ""))
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n")
+      .slice(0, 12_000)
+  } catch {
+    // Non-critical — quiz can be generated without chat context
+  }
+
   const response = await fetch("/api/quiz", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ uid, skillId, nodeIds }),
+    headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+    body: JSON.stringify({ uid, skillId, skillName: skill.name, nodeTitles, chatContext }),
   })
 
   if (!response.ok) {
@@ -130,7 +158,8 @@ export async function saveQuizResult(
       const letterToIndex: { [key in 'a' | 'b' | 'c' | 'd']: number } = { "a": 0, "b": 1, "c": 2, "d": 3 }
       return acc + (letterToIndex[answer as 'a' | 'b' | 'c' | 'd'] === letterToIndex[q.correctAnswer as 'a' | 'b' | 'c' | 'd'] ? 1 : 0)
     } else if (q.type === "fill-in-the-blank") {
-      return acc + ((answer as string).toLowerCase() === (q.correctAnswer as string).toLowerCase() ? 1 : 0)
+      // trim() so a stray space never marks a correct answer wrong
+      return acc + ((answer as string).trim().toLowerCase() === (q.correctAnswer as string).trim().toLowerCase() ? 1 : 0)
     } else if (q.type === "matching") {
       const userPairs = answer as { [term: string]: string }
       const correctPairs = q.correctAnswer as { term: string; definition: string }[]

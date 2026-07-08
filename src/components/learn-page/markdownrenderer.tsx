@@ -2,13 +2,31 @@
 
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
+import dynamic from "next/dynamic"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import rehypeMathjax from "rehype-mathjax"
 import { Highlight, themes } from "prism-react-renderer"
-import { ClipboardCheck, Copy } from "lucide-react"
+import { ClipboardCheck, Copy, ChevronDown, ChevronRight } from "lucide-react"
 import { useTheme } from "next-themes"
+import { parseExerciseSpec } from "@/lib/artifactParse"
+
+// Render ```mermaid and ```html fences through the SAME framed ArtifactPanel
+// used by the renderArtifact tool, so they look identical no matter which path
+// the model used (fenced code block vs. tool call). Dynamic + ssr:false because
+// the renderers touch browser globals at import time.
+const ArtifactPanelLazy = dynamic(
+  () => import("@/components/artifacts/ArtifactPanel").then((m) => ({ default: m.ArtifactPanel })),
+  {
+    ssr: false,
+    loading: () => (
+      <span className="text-xs text-neutral-400 animate-pulse block py-2">
+        Rendering…
+      </span>
+    ),
+  }
+)
 
 // Shared prop type for markdown component overrides.
 // Avoids 18 individual implicit-any errors in function parameters.
@@ -24,17 +42,21 @@ interface CodeProps extends React.HTMLAttributes<HTMLPreElement> {
 
 interface MarkdownRendererProps {
   content: string
+  /** True while useChat is still receiving tokens for this message. */
+  isStreaming?: boolean
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
-  const { theme } = useTheme()
+export function MarkdownRenderer({ content, isStreaming = false }: MarkdownRendererProps) {
+  // resolvedTheme (not theme) correctly returns "dark"/"light" even when the
+  // user's preference is "system" — theme would return "system" in that case.
+  const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const isDarkMode = theme === "dark"
+  const isDarkMode = resolvedTheme === "dark"
 
   // Memoised so ReactMarkdown doesn't rebuild its internal component tree
   // on every parent re-render. The object only changes when the theme flips.
@@ -43,6 +65,89 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           const match = /language-(\w+)/.exec(className || "")
           const isCodeBlock = match && !inline
           const language = match?.[1] || "text"
+
+          // Mermaid fences → live diagrams, but ONLY after streaming completes.
+          // During streaming, the mermaid source is partial/invalid. Calling
+          // mermaid.render() on every token would:
+          //  1. Block the main thread (~50-100ms per failed parse × 100s of tokens)
+          //  2. Create orphaned error-message DOM elements visible on screen
+          //  3. Cause the browser to freeze
+          if (isCodeBlock && language === "mermaid") {
+            if (isStreaming) {
+              return (
+                <div className="my-4 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/50 p-4 text-center">
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Diagram will render when complete...
+                  </span>
+                </div>
+              )
+            }
+            return (
+              <ArtifactPanelLazy
+                payload={{
+                  artifactId: "inline-mermaid",
+                  type: "mermaid",
+                  title: "Diagram",
+                  content: String(children).replace(/\n$/, ""),
+                }}
+              />
+            )
+          }
+
+          // HTML fences render as a live preview (with a Code toggle in the panel).
+          if (isCodeBlock && language === "html") {
+            const html = String(children).replace(/\n$/, "")
+            if (isStreaming) {
+              return (
+                <div className="my-4 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/50 p-4 text-center">
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Preview will render when complete...
+                  </span>
+                </div>
+              )
+            }
+            return (
+              <ArtifactPanelLazy
+                payload={{
+                  artifactId: "inline-html",
+                  type: "html",
+                  title: "Preview",
+                  content: html,
+                }}
+              />
+            )
+          }
+
+          // Coding exercises emitted as a fenced block — more reliable than tool
+          // calls on weaker models. Accept an explicit ```code-exercise tag, or a
+          // ```json block whose content parses to an exercise spec.
+          if (isCodeBlock && (language === "code-exercise" || language === "json")) {
+            const raw = String(children).replace(/\n$/, "")
+            const isExercise =
+              language === "code-exercise" || (!isStreaming && !!parseExerciseSpec(raw))
+            if (isExercise) {
+              if (isStreaming) {
+                return (
+                  <div className="my-4 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/50 p-4 text-center">
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Exercise will load when complete...
+                    </span>
+                  </div>
+                )
+              }
+              return (
+                <ArtifactPanelLazy
+                  payload={{
+                    artifactId: "inline-exercise",
+                    type: "code-exercise",
+                    title: "Exercise",
+                    content: raw,
+                  }}
+                />
+              )
+            }
+            // plain JSON that isn't an exercise → render as a normal code block
+          }
 
           if (isCodeBlock) {
             return (
@@ -182,17 +287,20 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             {children}
           </p>
         ),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      }), [isDarkMode])
+      }), [isDarkMode, isStreaming])
 
   // Hydration guard: useTheme returns different values on server vs client.
   // Placed after hooks so hook call order is stable.
   if (!mounted) return null
 
+  // During streaming, skip expensive plugins (remarkMath + rehypeMathjax).
+  // remarkGfm alone handles bold, italic, code, tables, lists — covers 99% of
+  // streaming content. Full rendering with mathjax kicks in when streaming ends.
+  // This reduces per-token render cost from ~5-10ms to <1ms.
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeMathjax]}
+      remarkPlugins={isStreaming ? [remarkGfm] : [remarkGfm, remarkMath]}
+      rehypePlugins={isStreaming ? [] : [rehypeMathjax]}
       components={markdownComponents}
     >
       {content}
@@ -210,6 +318,8 @@ function CodeBlockWithCopy({
   isDarkMode: boolean
 } & Omit<CodeProps, "children">) {
   const [copied, setCopied] = useState(false)
+  // Code blocks are expandable/collapsible; expanded by default.
+  const [collapsed, setCollapsed] = useState(false)
 
   function handleCopy() {
     navigator.clipboard
@@ -234,7 +344,21 @@ function CodeBlockWithCopy({
           isDarkMode ? "bg-neutral-700 text-neutral-300" : "bg-neutral-200 text-neutral-600"
         }`}
       >
-        <span className="font-mono">{language}</span>
+        {/* Language label doubles as the expand/collapse toggle */}
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className={`flex items-center gap-1 font-mono rounded px-1 py-0.5 transition-colors ${
+            isDarkMode ? "hover:text-white" : "hover:text-neutral-900"
+          }`}
+          title={collapsed ? "Expand" : "Collapse"}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+          {language}
+        </button>
         <button
           onClick={handleCopy}
           className={`rounded px-2 py-1 transition-colors ${
@@ -254,6 +378,7 @@ function CodeBlockWithCopy({
           )}
         </button>
       </div>
+    {!collapsed && (
     <Highlight theme={isDarkMode ? themes.nightOwl : themes.nightOwlLight} code={code} language={language}>
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
             <pre
@@ -281,6 +406,7 @@ function CodeBlockWithCopy({
             </pre>
         )}
     </Highlight>
+    )}
     </div>
   )
 }

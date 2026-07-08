@@ -4,6 +4,7 @@
  */
 
 import type { SkillSpaceData, RoadmapNode } from "./skillspace"
+import { composeSkills } from "./skills"
 
 // ─── Chat Skill Context ───────────────────────────────────────────────────────
 
@@ -87,15 +88,25 @@ TEACHING APPROACH:
 RESPONSE FORMAT:
 - Keep explanations under 3 concise paragraphs; use bullet points for lists
 - When showing code examples, use fenced code blocks with the language tag (e.g. \`\`\`jsx, \`\`\`python, \`\`\`html)
-- For interactive demos (React/HTML/CSS), write self-contained runnable code in \`\`\`jsx or \`\`\`html blocks
-- For architecture diagrams, flows, or relationships, use \`\`\`mermaid blocks
-- Do NOT use \`\`\`mermaid for simple code examples — only for actual diagrams
+- For short inline code snippets, use regular fenced code blocks — do NOT use renderArtifact
 
+${composeSkills()}
+${
+  // Only advertise the tool when it actually exists — otherwise the model may
+  // call a tool that isn't in the tool set and inject an error into the stream.
+  process.env.TAVILY_API_KEY
+    ? `
+WEB SEARCH (webSearch):
+- Use when answering requires current docs, recent updates, or real-world examples you're uncertain about
+- Always cite sources in your text response after using web search
+`
+    : ""
+}
 CONSTRAINTS:
 - Do not discuss topics outside the ${skillName} roadmap unless directly relevant
 - If asked about an unrelated topic, gently redirect: "Let's finish ${activeNodeTitle} first — ask me about that other topic after!"
 - Keep your tone warm, slightly humorous, and conversational — not robotic
-- NEVER mention, reference, simulate, or write out any function calls, tool names, or progress-tracking code in your responses. Progress is tracked separately — your job is purely to teach.`
+- NEVER mention renderArtifact, webSearch, or progression tool names in your text response`
 }
 
 // ─── Roadmap Generation Prompt ───────────────────────────────────────────────

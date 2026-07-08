@@ -1,68 +1,53 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateObject } from "ai"
-import { getOrderedProviders } from "@/lib/ai-providers"
-import { getSkillSpace } from "@/lib/skillspace"
-import { loadChatMessages } from "@/lib/skillChat"
+import { routeToProviders } from "@/lib/llm-router"
 import { buildQuizPrompt } from "@/lib/prompts"
 import { QuizResponseSchema, QuizQuestion } from "@/lib/schemas"
+import { verifyAuth } from "@/lib/serverAuth"
+import { checkRateLimit } from "@/lib/usage"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
 
-interface RoadmapNode {
-  id: string
-  title: string
-  children?: Array<{ id: string; title: string }>
-}
-
-interface ChatMessage {
-  role: string
-  content: string
-  nodeId?: string
-}
+// Server-side input bounds — context comes from the client and must be clamped.
+const MAX_CHAT_CONTEXT_CHARS = 12_000
+const MAX_NODE_TITLES_CHARS = 600
 
 export async function POST(req: NextRequest) {
   try {
-    const { uid, skillId, nodeIds } = await req.json()
-    if (!uid || !skillId || !nodeIds || !Array.isArray(nodeIds)) {
+    // The authenticated client supplies the topic titles and chat context — the
+    // server never reads Firestore (locked rules reject unauthenticated
+    // client-SDK reads, and the browser already has this data loaded).
+    const { uid, skillId, skillName, nodeTitles, chatContext } = await req.json()
+    if (!uid || !skillId || typeof skillName !== "string" || typeof nodeTitles !== "string" || !nodeTitles.trim()) {
       return NextResponse.json({ error: "Missing or invalid parameters" }, { status: 400 })
     }
 
-    const skill = await getSkillSpace(uid, skillId)
-    if (!skill || !skill.roadmapJSON?.nodes) {
-      return NextResponse.json({ error: "Skill or roadmap not found" }, { status: 404 })
+    // Identity check — quiz generation runs on this user's behalf and quota.
+    const auth = await verifyAuth(req, uid)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
 
-    const nodeTitles = nodeIds
-      .map((id) =>
-        skill.roadmapJSON?.nodes
-          .flatMap((n: RoadmapNode) => n.children || [])
-          .find((c: { id: string; title: string }) => c.id === id)?.title
-      )
-      .filter(Boolean)
-      .join(", ")
-
-    if (!nodeTitles) {
-      return NextResponse.json({ error: "No valid topics selected" }, { status: 400 })
+    const rateError = checkRateLimit(uid)
+    if (rateError) {
+      return NextResponse.json({ error: rateError }, { status: 429 })
     }
 
-    // Load relevant chat history for context (fire-and-forget friendly — non-critical)
-    let chatHistory = "No chat history available."
-    try {
-      const { messages: allMessages } = await loadChatMessages(uid, skillId)
-      const relevant = allMessages
-        .filter((msg: ChatMessage) => nodeIds.includes(msg.nodeId ?? ""))
-        .map((msg: ChatMessage) => `${msg.role}: ${msg.content}`)
-        .join("\n")
-      if (relevant) chatHistory = relevant
-    } catch {
-      // Non-critical — quiz can still be generated without chat context
-    }
+    const chatHistory =
+      typeof chatContext === "string" && chatContext.trim()
+        ? chatContext.slice(0, MAX_CHAT_CONTEXT_CHARS)
+        : "No chat history available."
 
-    const prompt = buildQuizPrompt({ skillName: skill.name, nodeTitles, chatHistory })
+    const prompt = buildQuizPrompt({
+      skillName: skillName.slice(0, 200),
+      nodeTitles: nodeTitles.slice(0, MAX_NODE_TITLES_CHARS),
+      chatHistory,
+    })
 
-    // ── Try each provider in failover order ──────────────────────────────────
-    const providers = getOrderedProviders()
+    // ── Try each provider in routing order (STRUCTURED task → Groq 70b preferred) ─
+    const { providers, rationale } = routeToProviders({ taskType: "STRUCTURED" })
+    console.log(`🧭 [quiz] ${rationale}`)
     let questions: QuizQuestion[] | null = null
 
     for (const provider of providers) {
@@ -74,6 +59,9 @@ export async function POST(req: NextRequest) {
           schema: QuizResponseSchema,
           prompt,
           maxRetries: 0, // fail fast — we handle failover ourselves
+          // Per-provider deadline so a queued provider fails over instead of
+          // hanging the request (see roadmapAI.ts for the measured incident).
+          abortSignal: AbortSignal.timeout(45_000),
         })
 
         // Post-parse quality filter (same as before, but now type-safe)
@@ -113,8 +101,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (!questions) {
-      console.warn("⚠️ [quiz] All providers failed — using fallback exercises")
-      questions = buildFallbackExercises(skill.name, nodeTitles)
+      // Honest failure beats filler questions ("What is a key feature of X? →
+      // All of the above" teaches nothing and erodes trust). The client shows
+      // an error state with a retry button.
+      console.warn("⚠️ [quiz] All providers failed — returning error (no filler fallback)")
+      return NextResponse.json(
+        { error: "Quiz generation is temporarily unavailable. Please try again in a moment." },
+        { status: 503 }
+      )
     }
 
     return NextResponse.json(questions)
@@ -123,48 +117,4 @@ export async function POST(req: NextRequest) {
     const errorMessage = err instanceof Error ? err.message : "Failed to generate exercises"
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
-}
-
-function buildFallbackExercises(skillName: string, nodeTitles: string): QuizQuestion[] {
-  const firstTopic = nodeTitles.split(", ")[0] || skillName
-  return [
-    {
-      type: "multiple-choice",
-      question: `What is a key feature of ${firstTopic}?`,
-      options: ["a. Performance", "b. Simplicity", "c. Flexibility", "d. All of the above"],
-      correctAnswer: "d",
-    },
-    {
-      type: "fill-in-the-blank",
-      question: `${firstTopic} is a fundamental concept in ${skillName} that helps with ___.`,
-      correctAnswer: "problem solving",
-    },
-    {
-      type: "multiple-choice",
-      question: `When should you use ${firstTopic}?`,
-      options: [
-        "a. Always, in every situation",
-        "b. When it solves the problem at hand",
-        "c. Never, it's outdated",
-        "d. Only in large projects",
-      ],
-      correctAnswer: "b",
-    },
-    {
-      type: "fill-in-the-blank",
-      question: `In ${skillName}, ___ is used to organize code effectively.`,
-      correctAnswer: firstTopic,
-    },
-    {
-      type: "multiple-choice",
-      question: `Which of the following best describes ${skillName}?`,
-      options: [
-        "a. A programming language only",
-        "b. A set of tools and concepts for building solutions",
-        "c. A database technology",
-        "d. An operating system",
-      ],
-      correctAnswer: "b",
-    },
-  ]
 }

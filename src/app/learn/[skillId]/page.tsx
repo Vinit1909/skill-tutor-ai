@@ -74,9 +74,21 @@ function LearnLayout({skillId}: {skillId?: string}) {
     async function handleClearChatClick() {
         if (!user?.uid || !skillId) return
 
-        await clearChatmessages(user.uid, skillId)
-        if (chatRef.current) {
-            chatRef.current.clearLocalChat()
+        // Destructive and irreversible — confirm before wiping the history.
+        const confirmed = window.confirm(
+            "Clear this chat? All messages in this skill space will be permanently deleted."
+        )
+        if (!confirmed) return
+
+        try {
+            await clearChatmessages(user.uid, skillId)
+            if (chatRef.current) {
+                chatRef.current.clearLocalChat()
+            }
+            toast.success("Chat cleared")
+        } catch (err) {
+            console.error("Failed to clear chat:", err)
+            toast.error("Couldn't clear the chat. Please try again.")
         }
     }
 
@@ -100,11 +112,19 @@ function LearnLayout({skillId}: {skillId?: string}) {
     }
 
     if (!skill && !fetching) {
+        // The skill genuinely doesn't exist (deleted, or a bad link) — an
+        // honest error beats the infinite spinner this used to show.
         return (
-            <div className="flex items-center justify-center h-screen w-screen">
-                <div className="text-md text-neutral-500 dark:text-neutral-400">
-                    <div className="flex gap-2 animate-shiny-text"><Loader className="animate-spin"/>Loading Skill</div>
-                </div>
+            <div className="flex flex-col items-center justify-center h-screen w-screen gap-3">
+                <p className="text-md text-neutral-600 dark:text-neutral-300 font-medium">
+                    This skill space could not be found.
+                </p>
+                <p className="text-sm text-neutral-400 dark:text-neutral-500">
+                    It may have been deleted, or the link is incorrect.
+                </p>
+                <Button variant="outline" onClick={() => window.location.href = "/dashboard"}>
+                    Back to dashboard
+                </Button>
             </div>
         )
     }
@@ -119,7 +139,7 @@ function LearnLayout({skillId}: {skillId?: string}) {
           />
         )
     }
-    
+
     // If we are still fetching skill data, show a loading
     if (fetching) {
         return (
@@ -137,15 +157,6 @@ function LearnLayout({skillId}: {skillId?: string}) {
                 onCreateRoadmap={() => setShowWizard(true)}
             />
 
-          {showWizard && user && skillId && (
-            <OnboardingWizard
-                skillName={skill?.name ?? "Unknown"}
-                uid={user.uid}
-                skillId={skillId}
-                onComplete={handleWizardComplete}
-            />
-          )}
-    
           {/* The main content area */}
           <SidebarInset className="flex flex-col h-screen overflow-hidden">
             <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 bg-white z-10 dark:bg-neutral-800 px-2 sm:px-4 ">
@@ -239,9 +250,9 @@ function LearnLayout({skillId}: {skillId?: string}) {
 
             {/* Chat interface */}
             <div className="flex-1 min-h-0 overflow-auto">
-                <Chat 
-                    ref={chatRef} 
-                    skillId={skillId} 
+                <Chat
+                    ref={chatRef}
+                    skillId={skillId}
                     questions={questions}
                 />
             </div>

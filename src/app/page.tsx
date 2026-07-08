@@ -26,6 +26,7 @@ import { QuestionCard, QuestionData } from "@/components/learn-page/question-car
 import LoadingBubble from "@/components/learn-page/ai-loading"
 import DarkModeToggle from "@/components/dark-mode-toggle"
 import UserProfileBadge from "@/components/user-profile-badge"
+import AppHeader from "@/components/app-header"
 import { FaArrowUp } from "react-icons/fa"
 import { Menu, Dices } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
@@ -172,44 +173,16 @@ export default function LandingPage() {
     const currentInput = demoInput
     setDemoInput("")
 
-    try {
-      // Make actual API call to your LLM endpoint
-      const response = await fetch("/api/llm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "assistant",
-              content: "You are a helpful React tutor. You're teaching someone about React Props. Keep responses concise but helpful, and use markdown for formatting. Be encouraging and practical.",
-            },
-            ...demoMessages,
-            userMessage
-          ]
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const aiMessage = { role: "assistant" as const, content: data.content || "Thanks for trying out the demo! This gives you a taste of how our AI tutor works. Sign up to get your personalized learning experience!" }
-        setDemoMessages(prev => [...prev, aiMessage])
-      } else {
-        // Fallback response
-        setDemoMessages(prev => [...prev, { 
-          role: "assistant" as const, 
-          content: `Great question about "${currentInput}"! This is just a demo, but our full AI tutor would provide detailed explanations with examples, code snippets, and personalized guidance based on your learning progress. Sign up to experience the complete learning journey!`
-        }])
-      }
-    } catch (error) {
-      // Log error and fallback response for any errors
-      console.error(error)
-      setDemoMessages(prev => [...prev, { 
-        role: "assistant" as const, 
-        content: "Thanks for trying the demo! Our AI tutor would normally provide a detailed response here. Sign up to get access to the full learning experience with personalized guidance!"
-      }])
-    } finally {
-      setIsTyping(false)
-    }
+    // The landing demo is intentionally scripted. It previously fetched
+    // /api/llm — a route that doesn't exist (every message 404'd into a
+    // fallback) — and a real unauthenticated LLM endpoint would let anyone
+    // drain the provider quota. The live tutor starts after sign-up.
+    await new Promise((r) => setTimeout(r, 900))
+    setDemoMessages(prev => [...prev, {
+      role: "assistant" as const,
+      content: `Great question about "${currentInput}"! In the full app I'd answer with a tailored explanation, interactive diagrams, runnable code, and practice exercises that update your personal roadmap as you learn. Sign up to start your learning journey!`
+    }])
+    setIsTyping(false)
   }
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -296,25 +269,17 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-white/20 dark:bg-neutral-800/70 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-700">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Orbit className="h-6 w-6 text-[#6c63ff] dark:text-[#7a83ff]" />
-            <h2 className="hidden sm:block text-xl font-semibold text-neutral-700 dark:text-neutral-300">SkillSpace</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" onClick={() => router.push("/sign-in")} size={isMobile ? "icon" : "default"} className={isMobile ? "relative flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50" : "flex gap-2 text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50 rounded-full"}>
-              <LogIn className="h-4 w-4" />
-              <span className="hidden sm:inline">Sign In</span>
-            </Button>
-            <Button variant="ghost" onClick={() => router.push("/sign-up")} size={isMobile ? "icon" : "default"} className={isMobile ? "relative flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50" : "flex gap-2 text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50 rounded-full"}>
-              <UserPlus className="h-4 w-4" />
-              <span className="hidden sm:inline">Get Started</span>
-            </Button>
-            <DarkModeToggle/>
-          </div>
-        </div>
-      </header>
+      <AppHeader>
+        <Button variant="ghost" onClick={() => router.push("/sign-in")} size={isMobile ? "icon" : "default"} className={isMobile ? "relative flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50" : "flex gap-2 text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50 rounded-full"}>
+          <LogIn className="h-4 w-4" />
+          <span className="hidden sm:inline">Sign In</span>
+        </Button>
+        <Button variant="ghost" onClick={() => router.push("/sign-up")} size={isMobile ? "icon" : "default"} className={isMobile ? "relative flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50" : "flex gap-2 text-neutral-700 dark:text-neutral-300 dark:bg-[hsl(0,0%,18%)] hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 border border-neutral-300/50 dark:border-neutral-700/50 rounded-full"}>
+          <UserPlus className="h-4 w-4" />
+          <span className="hidden sm:inline">Get Started</span>
+        </Button>
+        <DarkModeToggle/>
+      </AppHeader>
 
       {/* Hero Section */}
       <section className="py-12 px-4 bg-neutral-50/50 dark:bg-neutral-900/50">
@@ -639,7 +604,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                icon: RiRoadMapFill, RiLightbulbFlashFill ,
+                icon: RiRoadMapFill,
                 title: "AI-Generated Roadmaps",
                 description: "Get personalized learning paths tailored to your goals, experience level, and learning style."
               },
